@@ -1,0 +1,60 @@
+---
+title: 'Pancakes'
+author: 'Anonyme'
+source: ['https://www.marmiton.org/recettes/recette_pancakes-faciles-et-rapides_81518.aspx']
+category: 'Dessert'
+tags: ['pancake', 'oeuf', 'sucre', 'huile', 'farine', 'levure', 'lait', 'très facile', 'bon marché', 'rapide']
+portions: 2
+makes: '2 personnes'
+prepTime: 5
+cookTime: 10
+totalTime: 15
+notes: 'Notée 4.8/5 par 1247 membres Marmiton.'
+language: 'fr'
+---
+
+## Préparation de la pâte ->&pâte
+
+[Mixer] Battre grossièrement l'@œuf{1} et l'@sucre blanc{1 tbsp} dans un #saladier.
+
+[Ajouter] Ajouter l'@huile{1 tbsp} ou l'@beurre fondu{1 tbsp}.
+
+[Mélanger] Mélanger à part l'@farine{150g} et la @levure{1 tsp}, puis incorporer la moitié de cette mixture à la préparation.
+
+[Délayer] Délayer progressivement avec le @lait{200ml} tout en ajoutant la seconde moitié de farine petit à petit (cela évitera de créer des grumeaux).
+
+## Cuire les pancakes
+
+[Préchauffer] Aucun temps de repos n'est nécessaire, si ce n'est juste le temps de faire chauffer votre poêle à feu moyen. Huilez ou beurrez la poêle à l'aide de papier essuie-tout.
+
+[Déposer] Utiliser une petite louche pour déposer des « ronds » dans la poêle.
+
+[Retourner] Lorsque les bulles apparaissent et éclatent, retourner les pancakes et ne pas les laisser plus d'une minute sur l'autre face.
+
+~_{1min} // temps de cuisson pour chaque face
+~_{1min} // temps de cuisson pour chaque face
+~_{1min} // temps de cuisson pour chaque face
+
+// Note : les pancakes sont prêts lorsqu'ils sont dorés et que les bulles éclatent sur la surface.
+// Le temps de cuisson peut varier selon la taille des ronds et le type de poêle utilisée.
+
+// Aucun temps de repos n'est nécessaire, sauf le temps de préchauffage de la poêle.
+// Le beurre ou l'huile est utilisé pour huiler la poêle, pas pour être ajouté à la pâte.
+
+#poêle{}(moyen) // poêle à feu moyen
+#louche{} // petite louche
+#spatule{} // spatule pour retourner les pancakes
+
+@&œuf{1} // second usage de l'œuf
+@&sucre blanc{1 tbsp} // second usage du sucre blanc
+@&huile{1 tbsp} // second usage de l'huile
+@&beurre fondu{1 tbsp} // second usage du beurre fondu
+@&farine{150g} // second usage de la farine
+@&levure{1 tsp} // second usage de la levure
+@&lait{200ml} // second usage du lait
+
+// Le beurre ou l'huile est utilisé pour huiler la poêle, pas pour être ajouté à la pâte.
+// La pâte est préparée en une seule étape, sans repos ni refroidissement.
+// Les pancakes sont cuits à feu moyen, sans surchauffe.
+// Le temps de cuisson est de 1 minute par face, sans surcuisson.
+// Le résultat est un pancake moelleux, léger et facile à préparer.
