@@ -16,6 +16,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import app.gramcookbook.ui.MainActivity
 import org.eclipse.jgit.api.Git
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -26,6 +27,8 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
+import app.gramcookbook.data.Updater
 import org.robolectric.annotation.Config
 import java.io.File
 
@@ -42,6 +45,9 @@ class AppUiTest {
             val app = ApplicationProvider.getApplicationContext<Context>()
             app.getSharedPreferences("settings", Context.MODE_PRIVATE).edit().clear().commit()
             File(app.filesDir, "repos").deleteRecursively()
+            File(app.cacheDir, "updates").deleteRecursively()
+            // The automatic update check at start must not reach GitHub from tests.
+            Updater.latestReleaseUrl = "http://127.0.0.1:9/none"
         }
     }
 
@@ -241,5 +247,42 @@ class AppUiTest {
         compose.onNodeWithText("Retry").performClick()
         compose.waitUntilDoesNotExist(hasText("Not synced", substring = true), 20_000)
         Git.open(remote).use { git -> assertEquals("Add Soupe", git.log().call().first().shortMessage) }
+    }
+
+    @Test fun updateFromSettings() {
+        TestHttpServer().use { server ->
+            val apk = ByteArray(50_000) { it.toByte() }
+            server.file("/app.apk", apk)
+            server.json("/latest", TestHttpServer.releaseJson("9.9.9", server.base + "/app.apk", apk))
+            Updater.latestReleaseUrl = server.base + "/latest"
+
+            waitForText("Connect a repository")
+            compose.onNodeWithContentDescription("Settings").performClick()
+            compose.onNodeWithText("Installed version: ${BuildConfig.VERSION_NAME}").performScrollTo().assertExists()
+            compose.onNodeWithText("Check for updates").performScrollTo().performClick()
+            waitForText("Version 9.9.9 is available")
+            compose.onNodeWithText("Download and install").performScrollTo().performClick()
+
+            // First time: Android must let this app install apps.
+            val app = ApplicationProvider.getApplicationContext<android.app.Application>()
+            waitForText("Install 9.9.9")
+            val permission = shadowOf(app).nextStartedActivity
+            assertEquals(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, permission.action)
+            assertEquals("package:app.gramcookbook", permission.dataString)
+            assertArrayEquals(apk, File(app.cacheDir, "updates/GramCookbook-9.9.9.apk").readBytes())
+
+            // Allowed: Install opens the system installer on the downloaded file.
+            shadowOf(app.packageManager).setCanRequestPackageInstalls(true)
+            compose.onNodeWithText("Install 9.9.9").performScrollTo().performClick()
+            val install = shadowOf(app).nextStartedActivity
+            assertEquals(android.content.Intent.ACTION_VIEW, install.action)
+            assertEquals("application/vnd.android.package-archive", install.type)
+            assertEquals("content://app.gramcookbook.files/updates/GramCookbook-9.9.9.apk", install.dataString)
+            assertTrue(install.flags and android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION != 0)
+
+            // The list shows the update too.
+            compose.onNodeWithContentDescription("Back").performClick()
+            waitForText("Version 9.9.9 is available")
+        }
     }
 }

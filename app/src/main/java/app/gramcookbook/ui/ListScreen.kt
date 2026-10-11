@@ -93,6 +93,7 @@ fun ListScreen(vm: AppViewModel, snackbar: SnackbarHostState) {
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             if (vm.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+            UpdateBanner(vm)
             if (!vm.configured) {
                 Column(
                     Modifier.fillMaxSize().padding(32.dp),

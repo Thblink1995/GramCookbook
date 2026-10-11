@@ -73,4 +73,19 @@
     <string name="access_read_only">La lecture fonctionne, pas l\'écriture : %1$s</string>
     <string name="error_not_found">Dépôt introuvable : vérifiez l\'URL (et le jeton, pour un dépôt privé).</string>
     <string name="error_network">Serveur injoignable : vérifiez la connexion et l\'URL.</string>
+    <string name="update_title">Mises à jour</string>
+    <string name="current_version">Version installée : %1$s</string>
+    <string name="check_updates">Rechercher une mise à jour</string>
+    <string name="checking_updates">Recherche…</string>
+    <string name="up_to_date">C\'est la dernière version.</string>
+    <string name="update_available">La version %1$s est disponible</string>
+    <string name="update_now">Télécharger et installer</string>
+    <string name="update_install">Installer</string>
+    <string name="update_downloading">Téléchargement…</string>
+    <string name="update_check_failed">Impossible de vérifier les mises à jour : %1$s</string>
+    <string name="update_download_failed">Échec du téléchargement : %1$s</string>
+    <string name="update_corrupt">le fichier est incomplet ou modifié</string>
+    <string name="update_other_key">Cette version est signée avec une autre clé que l\'appli installée : Android ne peut pas l\'installer par-dessus. Synchronisez vos recettes, désinstallez l\'appli, puis installez la nouvelle version depuis la page des versions.</string>
+    <string name="update_allow_install">Autorisez Recettes à installer des applications, puis touchez Installer à nouveau.</string>
+    <string name="all_versions">Toutes les versions sur GitHub</string>
 </resources>

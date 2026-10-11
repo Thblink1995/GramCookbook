@@ -72,4 +72,19 @@
     <string name="access_read_only">Reading works, writing does not: %1$s</string>
     <string name="error_not_found">Repository not found: check the URL (and the token, for a private repository).</string>
     <string name="error_network">Cannot reach the server: check the connection and the URL.</string>
+    <string name="update_title">Updates</string>
+    <string name="current_version">Installed version: %1$s</string>
+    <string name="check_updates">Check for updates</string>
+    <string name="checking_updates">Checking…</string>
+    <string name="up_to_date">This is the latest version.</string>
+    <string name="update_available">Version %1$s is available</string>
+    <string name="update_now">Download and install</string>
+    <string name="update_install">Install</string>
+    <string name="update_downloading">Downloading…</string>
+    <string name="update_check_failed">Could not check for updates: %1$s</string>
+    <string name="update_download_failed">Download failed: %1$s</string>
+    <string name="update_corrupt">the file is incomplete or altered</string>
+    <string name="update_other_key">This version is signed with a different key than the installed app, so Android cannot install it over it. Sync your recipes, uninstall the app, then install the new version from the releases page.</string>
+    <string name="update_allow_install">Allow Cookbook to install apps, then tap Install again.</string>
+    <string name="all_versions">All versions on GitHub</string>
 </resources>

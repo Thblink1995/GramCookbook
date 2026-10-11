@@ -47,6 +47,12 @@ For GitHub, create a fine-grained personal access token (Settings → Developer 
 - **Edit**: the pencil opens the raw Gram text, with buttons for `@ # ~ ^ ##`.
 - **Colors** follow the Gram playground (gram-lang.org/play), in light and dark mode. On a recipe, the HTML preview's: ingredients purple, equipment blue, timers amber, temperatures red, intermediate preparations green, quantities as pills, actions as badges. In the editor, the playground editor's syntax highlighting (github-light / github-dark themes over the official grammar's token types).
 
+## Updates
+
+The app checks the latest GitHub release of this repository at start (silently when offline) and from Settings → Updates. When a newer version exists, a banner offers to download it: the APK's size and SHA-256 are checked against the release, its signing key against the installed app, then Android's installer opens (the first time, Android asks to allow the app to install apps).
+
+To publish an update: raise `versionCode` and `versionName` in `app/build.gradle.kts`, build with `./gradlew assembleRelease` (release key, see above), and create a GitHub release tagged `v<versionName>` with the APK attached. Releases must be signed with the same key as the installed app; an APK signed with another key is reported instead of installed.
+
 ## Sync
 
 On start, after every save or delete, and with the ⟳ button: commit everything, pull with rebase, push. If the same recipe changed on the phone and elsewhere, the sync stops and reports a conflict without losing the phone's version; fix it from a computer.

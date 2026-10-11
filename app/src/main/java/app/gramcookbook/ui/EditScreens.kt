@@ -20,6 +20,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -287,6 +288,8 @@ fun SettingsScreen(vm: AppViewModel, snackbar: SnackbarHostState) {
                 enabled = validUrl,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(stringResource(R.string.save_and_sync)) }
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            UpdateSection(vm)
         }
     }
 }

@@ -9,7 +9,11 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.gramcookbook.R
+import app.gramcookbook.BuildConfig
+import app.gramcookbook.data.ApkInstaller
 import app.gramcookbook.data.GitConfig
+import app.gramcookbook.data.Release
+import app.gramcookbook.data.Updater
 import app.gramcookbook.data.GitProblem
 import app.gramcookbook.data.GitSync
 import app.gramcookbook.data.ImportException
@@ -27,6 +31,18 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.io.File
+
+sealed interface UpdateState {
+    data object Idle : UpdateState
+    data object Checking : UpdateState
+    data object UpToDate : UpdateState
+    data class Available(val release: Release) : UpdateState
+    data class Downloading(val release: Release, val progress: Float) : UpdateState
+    /** Downloaded and verified; installing may still wait for the user's permission. */
+    data class Ready(val release: Release, val apk: File) : UpdateState
+    data class Failed(val message: String, val release: Release?) : UpdateState
+}
 
 sealed interface Screen {
     data object List : Screen
@@ -53,6 +69,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var configured by mutableStateOf(settings.isConfigured)
         private set
 
+    /** Where checking for, downloading and installing a new version stands. */
+    var update by mutableStateOf<UpdateState>(UpdateState.Idle)
+        private set
+
     /** Servings chosen per recipe, kept while browsing. */
     val servings = mutableStateMapOf<String, Int>()
 
@@ -66,6 +86,66 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         WindowCacheConfig().apply { setExposeStatsViaJmx(false) }.install()
         refresh()
         if (configured) sync(null)
+        checkForUpdate(manual = false)
+    }
+
+    /** Asks GitHub for the latest release. Automatic checks stay silent when offline. */
+    fun checkForUpdate(manual: Boolean) {
+        if (update is UpdateState.Checking || update is UpdateState.Downloading) return
+        viewModelScope.launch {
+            update = UpdateState.Checking
+            val result = runCatching { withContext(Dispatchers.IO) { Updater.latest() } }
+            update = result.fold(
+                onSuccess = { r ->
+                    if (r != null && Updater.isNewer(r.version, BuildConfig.VERSION_NAME)) UpdateState.Available(r)
+                    else UpdateState.UpToDate
+                },
+                onFailure = { e -> if (manual) UpdateState.Failed(str(R.string.update_check_failed, e.message ?: e.toString()), null) else UpdateState.Idle },
+            )
+        }
+    }
+
+    /** Downloads (once) and verifies the update, then opens Android's installer. */
+    fun installUpdate() {
+        val app = getApplication<Application>()
+        when (val u = update) {
+            is UpdateState.Ready -> startInstall(u.release, u.apk)
+            is UpdateState.Available, is UpdateState.Failed -> {
+                val release = (u as? UpdateState.Available)?.release ?: (u as UpdateState.Failed).release ?: return
+                viewModelScope.launch {
+                    update = UpdateState.Downloading(release, 0f)
+                    val apk = File(File(app.cacheDir, "updates"), "GramCookbook-${release.version}.apk")
+                    val result = runCatching {
+                        withContext(Dispatchers.IO) {
+                            Updater.download(release, apk) { p ->
+                                viewModelScope.launch { if (update is UpdateState.Downloading) update = UpdateState.Downloading(release, p) }
+                            }
+                        }
+                    }
+                    result.onSuccess { startInstall(release, it) }.onFailure { e ->
+                        val reason = if (e.message == "checksum" || e.message == "size") str(R.string.update_corrupt) else e.message ?: e.toString()
+                        update = UpdateState.Failed(str(R.string.update_download_failed, reason), release)
+                    }
+                }
+            }
+            else -> Unit
+        }
+    }
+
+    private fun startInstall(release: Release, apk: File) {
+        val app = getApplication<Application>()
+        if (ApkInstaller.compareSignature(app, apk) == ApkInstaller.Signature.DIFFERENT) {
+            update = UpdateState.Failed(str(R.string.update_other_key), null)
+            return
+        }
+        update = UpdateState.Ready(release, apk)
+        if (!ApkInstaller.canInstall(app)) {
+            // Android asks once; the user comes back and taps Install again.
+            message = str(R.string.update_allow_install)
+            ApkInstaller.requestPermission(app)
+            return
+        }
+        ApkInstaller.install(app, apk)
     }
 
     fun navigate(s: Screen) {

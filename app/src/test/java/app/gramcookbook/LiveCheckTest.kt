@@ -32,4 +32,10 @@ class LiveCheckTest {
         println("ACCESS no token: " + GitSync(File("build/ac1"), GitConfig(url)).checkAccess())
         println("ACCESS bad token: " + GitSync(File("build/ac2"), GitConfig(url, token = "github_pat_invalid")).checkAccess())
     }
+
+    @Test fun latestRealRelease() {
+        assumeTrue(System.getProperty("live") == "true")
+        val r = app.gramcookbook.data.Updater.latest()
+        println("RELEASE $r newer=${r?.let { app.gramcookbook.data.Updater.isNewer(it.version, BuildConfig.VERSION_NAME) }}")
+    }
 }
