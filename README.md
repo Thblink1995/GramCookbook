@@ -15,6 +15,19 @@ Or copy `app-debug.apk` to the phone and open it (allow installing from unknown 
 
 Building needs JDK 17 and the Android SDK (platform 35); put `sdk.dir=/path/to/Android/Sdk` in `local.properties`.
 
+## Release signing
+
+`./gradlew assembleRelease` signs with the key described in `keystore.properties` at the project root (git-ignored):
+
+```properties
+storeFile=/path/to/gramcookbook-release.jks
+storePassword=…
+keyAlias=gramcookbook
+keyPassword=…
+```
+
+Without that file it produces `app-release-unsigned.apk`. Android only installs an update signed with the same key as the installed app, so keep the keystore and its password backed up: losing them means users must uninstall to upgrade.
+
 ## Connect the repository
 
 Settings → repository URL **over HTTPS** (`https://github.com/<you>/recipes.git`, not the `git@` SSH address).
