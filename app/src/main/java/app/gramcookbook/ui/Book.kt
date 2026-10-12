@@ -1,5 +1,9 @@
 package app.gramcookbook.ui
 
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -63,6 +67,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -163,6 +168,8 @@ private class TurnState {
     var turn by mutableStateOf<Turn?>(null)
     var progress by mutableFloatStateOf(0f)
     var animating by mutableStateOf(false)
+    /** A page asked for while another turn was under way, by key: turned to once the book is still. */
+    var pending by mutableStateOf<String?>(null)
 }
 
 /** The recipes as a book: swipe to turn pages, tabs for the chapters, contents with search. */
@@ -220,8 +227,19 @@ fun BookScreen(vm: AppViewModel, snackbar: SnackbarHostState) {
         settled(key)
     }
 
+    // Pages keep the click handlers of the composition that drew them: read the book as it is now, not as it was then.
+    val currentLeaves by rememberUpdatedState(leaves)
+    val currentIndexOf by rememberUpdatedState(indexOf)
+
     fun turnTo(target: Int) {
-        if (target == page || state.animating || state.turn != null || target !in leaves.indices) return
+        val leaves = currentLeaves
+        val page = currentIndexOf[vm.bookPage] ?: 0
+        if (target !in leaves.indices) return
+        if (state.animating || state.turn != null) {
+            state.pending = leaves[target].key
+            return
+        }
+        if (target == page) return
         state.animating = true
         scope.launch {
             (leaves[target] as? Leaf.RecipeLeaf)?.let { load(it.entry.path) }
@@ -252,6 +270,12 @@ fun BookScreen(vm: AppViewModel, snackbar: SnackbarHostState) {
         if (detailPath != null) indexOf["recipe:$detailPath"]?.let(::turnTo)
         else if (leaves.getOrNull(page) is Leaf.RecipeLeaf) turnTo(0)
     }
+    LaunchedEffect(state.pending, state.animating, state.turn) {
+        val key = state.pending ?: return@LaunchedEffect
+        if (state.animating || state.turn != null) return@LaunchedEffect
+        state.pending = null
+        indexOf[key]?.let(::turnTo)
+    }
     BackHandler(enabled = vm.screen == Screen.List && page != 0) { turnTo(0) }
 
     Box(Modifier.fillMaxSize().desk(palette)) {
@@ -278,14 +302,14 @@ fun BookScreen(vm: AppViewModel, snackbar: SnackbarHostState) {
                         when (leaf) {
                             Leaf.Contents -> ContentsPage(vm, leaves, indexOf, query, { query = it }, ::turnTo)
                             is Leaf.Chapter -> ChapterPage(leaf, indexOf, ::turnTo)
-                            is Leaf.RecipeLeaf -> RecipePage(vm, leaf.entry.path, leaf.chapter.label, recipes, ::load)
+                            is Leaf.RecipeLeaf -> RecipePage(vm, leaf.entry.path, leaf.chapter.label, leaf.entry.source, recipes, ::load)
                         }
                         Folio(index + 1, Modifier.align(Alignment.BottomCenter))
                     }
                 }
             }
         }
-        if (vm.configured) WaxSeal(vm, Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 6.dp, bottom = 2.dp))
+        WaxSeal(vm, Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 6.dp, bottom = 2.dp))
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
     }
 }
@@ -302,8 +326,8 @@ private fun DeskHeader(vm: AppViewModel) {
                 color = palette.gold,
                 letterSpacing = 2.sp,
             )
-            if (vm.configured) {
-                IconButton(onClick = { vm.sync(null) }, enabled = !vm.busy) {
+            if (vm.configured || vm.sources.isNotEmpty()) {
+                IconButton(onClick = { vm.syncAll() }, enabled = !vm.busy) {
                     Icon(Icons.Default.Refresh, stringResource(R.string.sync), tint = palette.gold.copy(alpha = if (vm.busy) 0.4f else 1f))
                 }
             }
@@ -583,7 +607,7 @@ private fun ContentsPage(
             }
         }
         item { UpdateBanner(vm) }
-        if (!vm.configured) {
+        if (vm.recipes.isEmpty() && !vm.configured && !vm.busy) {
             item {
                 Column(
                     Modifier.fillMaxWidth().padding(vertical = 32.dp),
@@ -617,7 +641,7 @@ private fun ContentsPage(
             any = true
             item(key = leaf.key) { ChapterHeading(leaf) { indexOf[leaf.key]?.let(onOpen) } }
             items(shown, key = { it.path }) { e ->
-                TocLine(e.title, (indexOf["recipe:${e.path}"] ?: 0) + 1) { indexOf["recipe:${e.path}"]?.let(onOpen) }
+                TocLine(e.title, e.source, (indexOf["recipe:${e.path}"] ?: 0) + 1) { indexOf["recipe:${e.path}"]?.let(onOpen) }
             }
         }
         if (!any) {
@@ -669,11 +693,16 @@ private fun ChapterHeading(chapter: Leaf.Chapter, onClick: () -> Unit) {
 
 /** "Title ........ 12": the title, a dotted leader, and the page number. */
 @Composable
-private fun TocLine(title: String, page: Int, onClick: () -> Unit) {
+private fun TocLine(title: String, source: String?, page: Int, onClick: () -> Unit) {
     val palette = LocalBookPalette.current
+    // A recipe from a read-only repository names it after the title, as a smaller credit.
+    val text = buildAnnotatedString {
+        append(title)
+        if (source != null) withStyle(SpanStyle(color = palette.inkMuted, fontSize = 13.sp, fontStyle = FontStyle.Italic)) { append("  $source") }
+    }
     Layout(
         content = {
-            Text(title, style = MaterialTheme.typography.bodyLarge, color = palette.ink)
+            Text(text, style = MaterialTheme.typography.bodyLarge, color = palette.ink)
             Canvas(Modifier) {
                 val step = 5.dp.toPx()
                 var x = step / 2
@@ -730,7 +759,7 @@ private fun ChapterPage(chapter: Leaf.Chapter, indexOf: Map<String, Int>, onOpen
             }
         }
         items(chapter.entries, key = { it.path }) { e ->
-            TocLine(e.title, (indexOf["recipe:${e.path}"] ?: 0) + 1) { indexOf["recipe:${e.path}"]?.let(onOpen) }
+            TocLine(e.title, e.source, (indexOf["recipe:${e.path}"] ?: 0) + 1) { indexOf["recipe:${e.path}"]?.let(onOpen) }
         }
     }
 }
@@ -740,6 +769,7 @@ private fun RecipePage(
     vm: AppViewModel,
     path: String,
     chapter: String,
+    source: String?,
     recipes: SnapshotStateMap<String, Recipe>,
     load: suspend (String) -> Unit,
 ) {
@@ -750,7 +780,8 @@ private fun RecipePage(
             IconButton(onClick = { vm.back() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back), tint = palette.inkMuted) }
             // The running head: the chapter, as printed at the top of a book's pages.
             Text(
-                chapter.uppercase(),
+                // A recipe from a read-only repository also names it.
+                listOfNotNull(chapter, source).joinToString(" · ").uppercase(),
                 Modifier.weight(1f),
                 style = MaterialTheme.typography.labelMedium,
                 color = palette.inkMuted,
@@ -759,7 +790,11 @@ private fun RecipePage(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            IconButton(onClick = { vm.navigate(Screen.Edit(path)) }) { Icon(Icons.Default.Edit, stringResource(R.string.edit), tint = palette.inkMuted) }
+            if (source == null) {
+                IconButton(onClick = { vm.navigate(Screen.Edit(path)) }) { Icon(Icons.Default.Edit, stringResource(R.string.edit), tint = palette.inkMuted) }
+            } else {
+                TextButton(onClick = { vm.copyToMine(path) }) { Text(stringResource(R.string.copy_to_mine), color = palette.inkMuted) }
+            }
         }
         val recipe = recipes[path]
         if (recipe == null) {

@@ -56,11 +56,13 @@ fun RecipeContent(vm: AppViewModel, path: String, recipe: Recipe, contentPadding
             if (it != category) vm.setCategory(path, it)
         }
     }
-    RecipeView(recipe, category, { editCategory = true }, vm.servings[path], { vm.servings[path] = it }, contentPadding)
+    // A read-only recipe's category can't be changed (copy it to change it).
+    val onCategoryClick = if (vm.sourceOf(path) == null) ({ editCategory = true }) else null
+    RecipeView(recipe, category, onCategoryClick, vm.servings[path], { vm.servings[path] = it }, contentPadding)
 }
 
 @Composable
-private fun RecipeView(recipe: Recipe, category: String, onCategoryClick: () -> Unit, chosen: Int?, onChoose: (Int) -> Unit, contentPadding: PaddingValues) {
+private fun RecipeView(recipe: Recipe, category: String, onCategoryClick: (() -> Unit)?, chosen: Int?, onChoose: (Int) -> Unit, contentPadding: PaddingValues) {
     val base = recipe.portions
     // Without `portions`, the stepper counts halves of the recipe: 2 = ×1.
     val count = chosen ?: base ?: 2
@@ -79,11 +81,14 @@ private fun RecipeView(recipe: Recipe, category: String, onCategoryClick: () -> 
         item {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 recipe.title?.let { Text(it, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(bottom = 4.dp)) }
-                AssistChip(
-                    onClick = onCategoryClick,
-                    label = { Text(category.ifEmpty { stringResource(R.string.add_category) }) },
-                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.List, null) },
-                )
+                if (onCategoryClick != null || category.isNotEmpty()) {
+                    AssistChip(
+                        onClick = { onCategoryClick?.invoke() },
+                        label = { Text(category.ifEmpty { stringResource(R.string.add_category) }) },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.List, null) },
+                        enabled = onCategoryClick != null,
+                    )
+                }
                 recipe.meta["makes"]?.takeIf { it.isNotBlank() }?.let { Text(it, color = muted) }
                 recipe.meta["author"]?.let(GramParser::listValues)?.takeIf { it.isNotEmpty() }?.let { Text(it.joinToString(", "), color = muted) }
                 GramParser.listValues(recipe.meta["source"]).firstOrNull()?.let { src ->

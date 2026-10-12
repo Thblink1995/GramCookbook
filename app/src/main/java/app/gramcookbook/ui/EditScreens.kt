@@ -29,6 +29,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -41,6 +42,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
@@ -53,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.gramcookbook.R
 import app.gramcookbook.data.GitConfig
+import app.gramcookbook.data.Source
 import app.gramcookbook.gram.RecipeDraft
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -230,6 +234,7 @@ fun AddScreen(vm: AppViewModel, fromLink: Boolean, initialUrl: String, snackbar:
 @Composable
 fun SettingsScreen(vm: AppViewModel, snackbar: SnackbarHostState) {
     val current = remember { vm.settings.git }
+    var syncOn by rememberSaveable { mutableStateOf(vm.settings.syncEnabled) }
     var url by rememberSaveable { mutableStateOf(current.url) }
     var branch by rememberSaveable { mutableStateOf(current.branch) }
     var username by rememberSaveable { mutableStateOf(current.username) }
@@ -247,48 +252,107 @@ fun SettingsScreen(vm: AppViewModel, snackbar: SnackbarHostState) {
             modifier.verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(stringResource(R.string.settings_hint), style = MaterialTheme.typography.bodyMedium)
-            OutlinedTextField(
-                url, { url = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.repo_url)) },
-                placeholder = { Text("https://github.com/you/recipes.git") }, singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-            )
-            OutlinedTextField(branch, { branch = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.branch)) }, singleLine = true)
-            OutlinedTextField(username, { username = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.username)) }, singleLine = true)
-            OutlinedTextField(
-                token, { token = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.token)) },
-                singleLine = true, visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            )
-            OutlinedButton(
-                onClick = {
-                    checking = true
-                    check = null
-                    vm.checkAccess(typed) { text, ok -> check = text to ok; checking = false }
-                },
-                enabled = validUrl && !checking,
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text(stringResource(if (checking) R.string.checking else R.string.test_access)) }
-            if (checking) LinearProgressIndicator(Modifier.fillMaxWidth())
-            check?.let { (text, ok) ->
-                Text(
-                    (if (ok) "✓ " else "✗ ") + text,
-                    color = if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium,
+            Row(
+                Modifier.fillMaxWidth().toggleable(syncOn, role = Role.Switch, onValueChange = { syncOn = it }),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(stringResource(R.string.git_sync), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                Switch(checked = syncOn, onCheckedChange = null)
+            }
+            Text(stringResource(R.string.git_sync_off_hint), style = MaterialTheme.typography.bodySmall)
+            if (syncOn) {
+                Text(stringResource(R.string.settings_hint), style = MaterialTheme.typography.bodyMedium)
+                OutlinedTextField(
+                    url, { url = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.repo_url)) },
+                    placeholder = { Text("https://github.com/you/recipes.git") }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                )
+                OutlinedTextField(branch, { branch = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.branch)) }, singleLine = true)
+                OutlinedTextField(username, { username = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.username)) }, singleLine = true)
+                OutlinedTextField(
+                    token, { token = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.token)) },
+                    singleLine = true, visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                )
+                OutlinedButton(
+                    onClick = {
+                        checking = true
+                        check = null
+                        vm.checkAccess(typed) { text, ok -> check = text to ok; checking = false }
+                    },
+                    enabled = validUrl && !checking,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(stringResource(if (checking) R.string.checking else R.string.test_access)) }
+                if (checking) LinearProgressIndicator(Modifier.fillMaxWidth())
+                check?.let { (text, ok) ->
+                    Text(
+                        (if (ok) "✓ " else "✗ ") + text,
+                        color = if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.author_name)) }, singleLine = true)
+                OutlinedTextField(
+                    email, { email = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.author_email)) },
+                    singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 )
             }
-            OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.author_name)) }, singleLine = true)
-            OutlinedTextField(
-                email, { email = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.author_email)) },
-                singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            )
             Button(
-                onClick = { vm.saveSettings(typed) },
-                enabled = validUrl,
+                onClick = { vm.saveSettings(syncOn, typed) },
+                enabled = !syncOn || validUrl,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text(stringResource(R.string.save_and_sync)) }
+            ) { Text(stringResource(if (syncOn) R.string.save_and_sync else R.string.save)) }
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            SourcesSection(vm)
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             UpdateSection(vm)
         }
     }
 }
+
+/** Read-only repositories: the ones in the book, and a form to add one (kept only if it can be cloned). */
+@Composable
+private fun SourcesSection(vm: AppViewModel) {
+    var url by rememberSaveable { mutableStateOf("") }
+    var token by rememberSaveable { mutableStateOf("") }
+    var adding by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val validUrl = url.startsWith("https://") || url.startsWith("http://") || url.startsWith("file:/")
+
+    Text(stringResource(R.string.sources_title), style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(R.string.sources_hint), style = MaterialTheme.typography.bodySmall)
+    for (source in vm.sources) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(source.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+            IconButton(onClick = { vm.removeSource(source) }) {
+                Icon(Icons.Default.Delete, stringResource(R.string.remove_source, source.name))
+            }
+        }
+    }
+    OutlinedTextField(
+        url, { url = it; error = null }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.source_url)) },
+        placeholder = { Text("https://github.com/someone/recipes.git") }, singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+    )
+    OutlinedTextField(
+        token, { token = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.source_token)) },
+        singleLine = true, visualTransformation = PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+    )
+    OutlinedButton(
+        onClick = {
+            adding = true
+            error = null
+            vm.addSource(Source(url.trim(), token.trim())) { e ->
+                adding = false
+                error = e
+                if (e == null) { url = ""; token = "" }
+            }
+        },
+        enabled = validUrl && !adding,
+        modifier = Modifier.fillMaxWidth(),
+    ) { Text(stringResource(if (adding) R.string.adding else R.string.add_source)) }
+    if (adding) LinearProgressIndicator(Modifier.fillMaxWidth())
+    error?.let { Text("✗ $it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+}
+

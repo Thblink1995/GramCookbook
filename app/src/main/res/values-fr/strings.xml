@@ -11,8 +11,7 @@
     <string name="from_link">Depuis un lien</string>
     <string name="search">Rechercher</string>
     <string name="no_recipes">Aucune recette. Appuyez sur + pour en ajouter une.</string>
-    <string name="setup_hint">Connectez le dépôt git qui contient vos recettes .gram.</string>
-    <string name="setup_first">Connectez d\'abord votre dépôt, dans les paramètres.</string>
+    <string name="setup_hint">Pas encore de recette. Ajoutez-en une avec le sceau de cire, ou synchronisez avec un dépôt git de recettes .gram.</string>
     <string name="connect_repo">Connecter un dépôt</string>
     <string name="back">Retour</string>
     <string name="edit">Modifier</string>
@@ -50,6 +49,8 @@
     <string name="author_name">Nom de l\'auteur des commits</string>
     <string name="author_email">E-mail de l\'auteur des commits</string>
     <string name="save_and_sync">Enregistrer et synchroniser</string>
+    <string name="git_sync">Synchroniser avec un dépôt git</string>
+    <string name="git_sync_off_hint">Désactivé : les recettes restent sur ce téléphone. Activé : elles sont dans un dépôt git, avec un commit et un push après chaque modification ; les recettes du téléphone y sont ajoutées.</string>
     <string name="commit_add">Ajout : %1$s</string>
     <string name="commit_edit">Modification : %1$s</string>
     <string name="commit_delete">Suppression : %1$s</string>
@@ -94,4 +95,14 @@
         <item quantity="one">%d recette</item>
         <item quantity="other">%d recettes</item>
     </plurals>
+    <string name="sources_title">Autres livres de recettes (lecture seule)</string>
+    <string name="sources_hint">Les recettes de ces dépôts rejoignent le livre, par catégorie. Elles ne peuvent pas être modifiées ici : copiez-en une dans votre livre pour la modifier.</string>
+    <string name="source_url">Adresse d\'un livre à lire (HTTPS)</string>
+    <string name="source_token">Jeton (dépôts privés uniquement)</string>
+    <string name="add_source">Ajouter</string>
+    <string name="adding">Ajout…</string>
+    <string name="remove_source">Retirer %1$s</string>
+    <string name="source_exists">Ce dépôt est déjà dans le livre.</string>
+    <string name="source_failed">Impossible de mettre à jour %1$s : %2$s</string>
+    <string name="copy_to_mine">Copier dans mon livre</string>
 </resources>

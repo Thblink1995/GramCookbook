@@ -1,8 +1,8 @@
 # Cookbook
 
-A small Android app for the `.gram` recipes in a git repository: browse them, change the number of servings, add new ones by typing them or from a web link. Every change is committed and pushed; other changes are pulled on start and with the sync button.
+A small Android app for `.gram` recipes: browse them, change the number of servings, add new ones by typing them or from a web link. The recipes are plain files on the phone; optionally, they live in a git repository instead: every change is committed and pushed, and other changes are pulled on start and with the sync button.
 
-Native UI (Kotlin, Jetpack Compose, Material 3). No server, no AI, no database: the git working copy is the data.
+Native UI (Kotlin, Jetpack Compose, Material 3). No server, no AI, no database: the files (or the git working copy) are the data.
 
 ## Install
 
@@ -28,13 +28,19 @@ keyPassword=…
 
 Without that file it produces `app-release-unsigned.apk`. Android only installs an update signed with the same key as the installed app, so keep the keystore and its password backed up: losing them means users must uninstall to upgrade.
 
-## Connect the repository
+## Connect a repository (optional)
 
-Settings → repository URL **over HTTPS** (`https://github.com/<you>/recipes.git`, not the `git@` SSH address).
+Git sync is off by default: the recipes stay on the phone. To keep them in a repository, turn on Settings → **Sync with a git repository**. On the first sync, the recipes already on the phone are added to the repository (one commit, "Add recipes from the phone"). Turning sync off again copies the repository's recipes to the phone, so the book stays the same; the repository's copy on the phone is kept for the next time.
+
+Repository URL **over HTTPS** (`https://github.com/<you>/recipes.git`, not the `git@` SSH address).
 
 For GitHub, create a fine-grained personal access token (Settings → Developer settings → Fine-grained tokens) limited to that repository, with **Contents: Read and write**. Put it in the token field. The token is stored in the app's private storage and excluded from backups.
 
 **Test access** checks the values as typed, before saving, without changing the repository: it lists the remote branches (read), then opens a push connection and closes it without sending anything (write; GitHub only accepts it from a token allowed to write). It reports one of: read and write allowed (with the default branch), token missing, token refused, token without write access, repository not found, or server unreachable. If the token is refused, try your GitHub username in the username field.
+
+## Other cookbooks (read-only)
+
+Settings → **Other cookbooks**: add the HTTPS address of someone else's recipe repository (a token only for a private one; read access is enough). It is kept only if it can be cloned. Its recipes join the book's chapters by category, with the repository's name (`owner/repo`) in the contents and at the top of their pages. They are updated at start and with ⟳, and never changed by the app: **Copy to my cookbook** on a recipe makes your own copy, which can be edited. Removing a repository removes its recipes from the book (not your copies).
 
 ## Use
 

@@ -5,6 +5,7 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
@@ -30,12 +31,16 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import app.gramcookbook.data.Updater
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 import java.io.File
 
 /** The whole flow on the real screens: connect, browse, scale, write a recipe, sync. */
 @OptIn(ExperimentalTestApi::class)
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+// Real text measuring and clipping (in the legacy graphics mode, taps inside the book's rounded cover are lost),
+// on a phone-sized screen.
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [34], qualifiers = "w400dp-h860dp-xhdpi")
 class AppUiTest {
     @get:Rule(order = 0) val tmp = TemporaryFolder()
 
@@ -45,6 +50,8 @@ class AppUiTest {
             val app = ApplicationProvider.getApplicationContext<Context>()
             app.getSharedPreferences("settings", Context.MODE_PRIVATE).edit().clear().commit()
             File(app.filesDir, "repos").deleteRecursively()
+            File(app.filesDir, "recipes").deleteRecursively()
+            File(app.filesDir, "sources").deleteRecursively()
             File(app.cacheDir, "updates").deleteRecursively()
             // The automatic update check at start must not reach GitHub from tests.
             Updater.latestReleaseUrl = "http://127.0.0.1:9/none"
@@ -86,8 +93,8 @@ class AppUiTest {
     @Test fun connectBrowseScaleAndAdd() {
         val remote = remote()
         waitForText("Connect a repository")
-
         compose.onNodeWithText("Connect a repository").performClick()
+        compose.onNodeWithText("Sync with a git repository").performClick()
         compose.onNode(hasText("Repository URL (HTTPS)") and hasSetTextAction()).performScrollTo().performTextInput(remote.toURI().toString())
         compose.onNodeWithText("Test access").performScrollTo().performClick()
         waitForText("✓ Read and write allowed (default branch: main).")
@@ -171,6 +178,65 @@ class AppUiTest {
         compose.onNodeWithText("Dessert").assertDoesNotExist()
     }
 
+    @Test fun recipesWithoutGitJoinTheRepositoryWhenSyncIsTurnedOn() {
+        val remote = remote()
+        waitForText("Connect a repository")
+
+        // Sync is off on a fresh install: write a recipe on the phone only.
+        compose.onNodeWithContentDescription("Add a recipe").performClick()
+        compose.onNodeWithText("Write a recipe").performClick()
+        compose.onNode(hasText("Title") and hasSetTextAction()).performScrollTo().performTextInput("Soupe")
+        compose.onNode(hasText("Ingredients") and hasSetTextAction()).performScrollTo().performTextInput("2 poireaux")
+        compose.onNode(hasText("Steps") and hasSetTextAction()).performScrollTo().performTextInput("Couper les poireaux.")
+        compose.onNodeWithContentDescription("Save").performClick()
+        waitForText(item("poireaux", "2"), substring = true)
+        compose.onNodeWithContentDescription("Back").performClick()
+        waitForText("Soupe")
+
+        // Turn sync on: the phone's recipe joins the repository's.
+        compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNodeWithText("Sync with a git repository").performClick()
+        compose.onNode(hasText("Repository URL (HTTPS)") and hasSetTextAction()).performScrollTo().performTextInput(remote.toURI().toString())
+        compose.onNodeWithText("Save and sync").performScrollTo().performClick()
+        waitForText("Pancakes")
+        waitForText("Soupe")
+        compose.waitUntil(20_000) {
+            Git.open(remote).use { git -> git.log().call().first().shortMessage == "Add recipes from the phone" }
+        }
+
+        // Turn it off again: the book keeps both, as plain files.
+        compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNodeWithText("Sync with a git repository").performClick()
+        compose.onNodeWithText("Save").performScrollTo().performClick()
+        waitForText("Pancakes")
+        waitForText("Soupe")
+        compose.onNodeWithContentDescription("Sync").assertDoesNotExist()
+    }
+
+    @Test fun readOnlyRepositoryJoinsTheBookAndCanBeCopied() {
+        val other = remote()
+        waitForText("Connect a repository")
+
+        // Add someone else's repository: its recipe joins the book, credited to it.
+        compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNode(hasText("URL of a cookbook to read (HTTPS)") and hasSetTextAction()).performScrollTo().performTextInput(other.toURI().toString())
+        compose.onNodeWithText("Add").performScrollTo().performClick()
+        val name = "${other.parentFile!!.name}/remote"
+        compose.waitUntil(20_000) { compose.onAllNodesWithContentDescription("Remove $name").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription("Back").performClick()
+        waitForText("Pancakes", substring = true)
+        compose.onNodeWithText("Pancakes", substring = true).performClick()
+        waitForText("2 servings")
+        compose.onNodeWithContentDescription("Edit").assertDoesNotExist()
+
+        // A copy is the cookbook's own: editable, and a plain file on the phone (sync is off).
+        compose.onNodeWithText("Copy to my cookbook").performClick()
+        waitForText("2 servings")
+        compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Edit").fetchSemanticsNodes().isNotEmpty() }
+        val app = ApplicationProvider.getApplicationContext<Context>()
+        assertTrue(File(app.filesDir, "recipes/pancakes.gram").readText().contains("@flour{100g}"))
+    }
+
     @Test fun importFromLink() {
         val remote = remote()
         val page = """<html><script type="application/ld+json">{"@type":"Recipe","name":"Tarte aux pommes",
@@ -195,6 +261,7 @@ class AppUiTest {
         try {
             waitForText("Connect a repository")
             compose.onNodeWithText("Connect a repository").performClick()
+            compose.onNodeWithText("Sync with a git repository").performClick()
             compose.onNode(hasText("Repository URL (HTTPS)") and hasSetTextAction()).performScrollTo().performTextInput(remote.toURI().toString())
             compose.onNodeWithText("Save and sync").performScrollTo().performClick()
             waitForText("Pancakes")
@@ -223,6 +290,7 @@ class AppUiTest {
         val remote = remote()
         waitForText("Connect a repository")
         compose.onNodeWithText("Connect a repository").performClick()
+        compose.onNodeWithText("Sync with a git repository").performClick()
         compose.onNode(hasText("Repository URL (HTTPS)") and hasSetTextAction()).performScrollTo().performTextInput(remote.toURI().toString())
         compose.onNodeWithText("Save and sync").performScrollTo().performClick()
         waitForText("Pancakes")

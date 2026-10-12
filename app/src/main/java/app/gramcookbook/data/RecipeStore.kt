@@ -3,8 +3,11 @@ package app.gramcookbook.data
 import app.gramcookbook.gram.GramParser
 import java.io.File
 
-/** A recipe file, by path relative to the repository root (`breakfast/pancakes.gram`). */
-data class RecipeEntry(val path: String, val title: String, val category: String)
+/**
+ * A recipe file, by path relative to the repository root (`breakfast/pancakes.gram`).
+ * Recipes of a read-only [Source] have its id as a prefix (`<id>:breakfast/pancakes.gram`) and its [source] name.
+ */
+data class RecipeEntry(val path: String, val title: String, val category: String, val source: String? = null)
 
 /** The working copy of the git repository is the whole database: one `.gram` file per recipe. */
 class RecipeStore(val root: File) {
@@ -45,6 +48,16 @@ class RecipeStore(val root: File) {
         var n = 2
         while (file(candidate).exists()) candidate = "$base-${n++}.gram"
         return candidate
+    }
+
+    /** Copies every recipe into [target] (same paths, replacing what is there); with [move], removes them here. */
+    fun copyTo(target: RecipeStore, move: Boolean = false): Int {
+        val entries = list()
+        for (e in entries) {
+            target.write(e.path, read(e.path))
+            if (move) delete(e.path)
+        }
+        return entries.size
     }
 
     private fun file(path: String): File {

@@ -11,8 +11,7 @@
     <string name="from_link">From a link</string>
     <string name="search">Search</string>
     <string name="no_recipes">No recipes yet. Tap + to add one.</string>
-    <string name="setup_hint">Connect the git repository that holds your .gram recipes.</string>
-    <string name="setup_first">Connect your repository first, in Settings.</string>
+    <string name="setup_hint">No recipes yet. Add one with the wax seal, or sync with a git repository of .gram recipes.</string>
     <string name="connect_repo">Connect a repository</string>
     <string name="back">Back</string>
     <string name="edit">Edit</string>
@@ -49,6 +48,8 @@
     <string name="author_name">Commit author name</string>
     <string name="author_email">Commit author email</string>
     <string name="save_and_sync">Save and sync</string>
+    <string name="git_sync">Sync with a git repository</string>
+    <string name="git_sync_off_hint">Off: the recipes stay on this phone. On: they live in a git repository, committed and pushed after every change; the phone\'s recipes are added to it.</string>
     <string name="commit_add">Add %1$s</string>
     <string name="commit_edit">Update %1$s</string>
     <string name="commit_delete">Delete %1$s</string>
@@ -93,4 +94,14 @@
         <item quantity="other">%d recipes</item>
     </plurals>
     <string name="all_versions">All versions on GitHub</string>
+    <string name="sources_title">Other cookbooks (read-only)</string>
+    <string name="sources_hint">Recipes from these repositories join the book, by category. They can\'t be changed here: copy one to your cookbook to change it.</string>
+    <string name="source_url">URL of a cookbook to read (HTTPS)</string>
+    <string name="source_token">Token (private repositories only)</string>
+    <string name="add_source">Add</string>
+    <string name="adding">Adding…</string>
+    <string name="remove_source">Remove %1$s</string>
+    <string name="source_exists">This repository is already in the book.</string>
+    <string name="source_failed">Could not update %1$s: %2$s</string>
+    <string name="copy_to_mine">Copy to my cookbook</string>
 </resources>

@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
@@ -20,6 +21,8 @@ import app.gramcookbook.data.ImportException
 import app.gramcookbook.data.RecipeEntry
 import app.gramcookbook.data.RecipeStore
 import app.gramcookbook.data.Settings
+import app.gramcookbook.data.Source
+import app.gramcookbook.data.SourceSync
 import app.gramcookbook.data.SyncException
 import app.gramcookbook.data.WebImporter
 import app.gramcookbook.gram.GramParser
@@ -59,14 +62,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     var recipes by mutableStateOf<List<RecipeEntry>>(emptyList())
         private set
-    var busy by mutableStateOf(false)
-        private set
+    /** Running syncs, updates and imports; they can overlap. */
+    private var tasks by mutableIntStateOf(0)
+    val busy: Boolean get() = tasks > 0
     var message by mutableStateOf<String?>(null)
 
     /** Why the last sync failed; shown until a sync succeeds, since local changes are waiting. */
     var syncProblem by mutableStateOf<String?>(null)
         private set
+    /** Git sync is on and has a repository; otherwise the recipes are plain local files. */
     var configured by mutableStateOf(settings.isConfigured)
+        private set
+
+    /** Read-only repositories whose recipes join the book. */
+    var sources by mutableStateOf(settings.sources)
         private set
 
     /** Where checking for, downloading and installing a new version stands. */
@@ -80,7 +89,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val servings = mutableStateMapOf<String, Int>()
 
     private val gitLock = Mutex()
-    val store: RecipeStore get() = RecipeStore(settings.repoDir())
+    private val sourcesLock = Mutex()
+    val store: RecipeStore get() = RecipeStore(if (configured) settings.repoDir() else settings.localDir)
+    private val localStore get() = RecipeStore(settings.localDir)
 
     init {
         // JGit looks for ~/.gitconfig; Android has no home directory.
@@ -89,6 +100,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         WindowCacheConfig().apply { setExposeStatsViaJmx(false) }.install()
         refresh()
         if (configured) sync(null)
+        pullSources(manual = false)
         checkForUpdate(manual = false)
     }
 
@@ -168,7 +180,81 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refresh() {
         viewModelScope.launch {
-            recipes = withContext(Dispatchers.IO) { store.list() }
+            recipes = withContext(Dispatchers.IO) {
+                val others = sources.flatMap { source ->
+                    RecipeStore(settings.sourceDir(source)).list().map { it.copy(path = "${source.id}:${it.path}", source = source.name) }
+                }
+                (store.list() + others).sortedBy { it.title.lowercase() }
+            }
+        }
+    }
+
+    /** The read-only repository a recipe comes from, or null for the cookbook's own. */
+    fun sourceOf(path: String): Source? = sources.firstOrNull { path.startsWith(it.id + ":") }
+
+    /** Brings the read-only repositories up to date; automatic updates stay silent when they fail. */
+    fun pullSources(manual: Boolean) {
+        val list = sources
+        if (list.isEmpty()) return
+        viewModelScope.launch {
+            tasks++
+            val failures = withContext(Dispatchers.IO) {
+                sourcesLock.withLock {
+                    list.mapNotNull { source ->
+                        runCatching { SourceSync(settings.sourceDir(source), source).update() }.exceptionOrNull()?.let { source to it }
+                    }
+                }
+            }
+            tasks--
+            if (manual) failures.firstOrNull()?.let { (source, e) -> message = str(R.string.source_failed, source.name, syncError(e)) }
+            refresh()
+        }
+    }
+
+    /** The ⟳ button: the cookbook's own repository, then the read-only ones. */
+    fun syncAll() {
+        sync(null)
+        pullSources(manual = true)
+    }
+
+    /** Clones [source]; it is kept only if that works. [onResult] gets an error, or null once added. */
+    fun addSource(source: Source, onResult: (String?) -> Unit) {
+        if (sources.any { it.id == source.id }) return onResult(str(R.string.source_exists))
+        viewModelScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) { sourcesLock.withLock { SourceSync(settings.sourceDir(source), source).update() } }
+            }
+            result.onSuccess {
+                sources = sources + source
+                settings.sources = sources
+                refresh()
+            }
+            onResult(result.exceptionOrNull()?.let(::syncError))
+        }
+    }
+
+    fun removeSource(source: Source) {
+        sources = sources.filter { it.id != source.id }
+        settings.sources = sources
+        if (bookPage.startsWith("recipe:${source.id}:")) bookPage = "contents"
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { sourcesLock.withLock { settings.sourceDir(source).deleteRecursively() } }
+            refresh()
+        }
+    }
+
+    /** Copies a read-only recipe into the cookbook's own, where it can be changed, and shows the copy. */
+    fun copyToMine(path: String) {
+        viewModelScope.launch {
+            val (copy, title) = withContext(Dispatchers.IO) {
+                val text = read(path)
+                val title = GramParser.readTitle(text) ?: path.substringAfterLast('/').removeSuffix(".gram")
+                val p = store.newPath(title)
+                store.write(p, text)
+                p to title
+            }
+            replace(Screen.Detail(copy))
+            sync(str(R.string.commit_add, title))
         }
     }
 
@@ -176,17 +262,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Commits local changes, pulls and pushes. [commitMessage] null = nothing new expected. */
     fun sync(commitMessage: String?) {
-        if (!configured) return
+        if (!configured) return refresh()
         viewModelScope.launch {
-            busy = true
+            tasks++
             val result = runCatching {
                 withContext(Dispatchers.IO) {
                     gitLock.withLock {
-                        GitSync(settings.repoDir(), settings.git).sync(commitMessage ?: "Update recipes")
+                        val git = GitSync(settings.repoDir(), settings.git)
+                        git.cloneIfNeeded()
+                        // Recipes written while sync was off join the repository (and leave the local folder).
+                        val moved = localStore.copyTo(RecipeStore(settings.repoDir()), move = true)
+                        git.sync(commitMessage ?: if (moved > 0) "Add recipes from the phone" else "Update recipes")
                     }
                 }
             }
-            busy = false
+            tasks--
             result.onFailure { syncProblem = syncError(it) }.onSuccess { syncProblem = null }
             if (commitMessage == null) result.onSuccess { changed -> if (changed) message = str(R.string.synced) }
             refresh()
@@ -220,17 +310,30 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun saveSettings(config: GitConfig) {
+    fun saveSettings(enabled: Boolean, config: GitConfig) {
+        // Turning sync off keeps the book as it was: the repository's recipes become the local ones.
+        val leaving = if (configured) RecipeStore(settings.repoDir()) else null
         settings.git = config
+        settings.syncEnabled = enabled
         configured = settings.isConfigured
         syncProblem = null
         recipes = emptyList()
         backStack.clear()
         backStack += Screen.List
-        sync(null)
+        if (leaving != null && !configured) {
+            viewModelScope.launch {
+                withContext(Dispatchers.IO) { gitLock.withLock { leaving.copyTo(localStore) } }
+                refresh()
+            }
+        } else {
+            sync(null)
+        }
     }
 
-    fun read(path: String): String = store.read(path)
+    fun read(path: String): String {
+        val source = sourceOf(path) ?: return store.read(path)
+        return RecipeStore(settings.sourceDir(source)).read(path.removePrefix(source.id + ":"))
+    }
 
     /** Saves raw Gram text from the editor. */
     fun saveText(path: String, text: String) {
@@ -288,9 +391,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun importUrl(url: String, onResult: (RecipeDraft) -> Unit) {
         viewModelScope.launch {
-            busy = true
+            tasks++
             val result = runCatching { withContext(Dispatchers.IO) { WebImporter.fetch(url) } }
-            busy = false
+            tasks--
             result.onSuccess(onResult).onFailure { e ->
                 message = when {
                     e is ImportException && e.message == "no-recipe" -> str(R.string.error_no_recipe)
@@ -303,10 +406,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** A link shared from the browser opens the import form directly. */
     fun handleSharedText(text: String?) {
         val url = text?.let { Regex("""https?://\S+""").find(it)?.value } ?: return
-        if (!configured) {
-            message = str(R.string.setup_first)
-            return
-        }
         navigate(Screen.Add(fromLink = true, url = url))
     }
 }
