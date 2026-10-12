@@ -88,4 +88,10 @@
     <string name="update_other_key">Cette version est signée avec une autre clé que l\'appli installée : Android ne peut pas l\'installer par-dessus. Synchronisez vos recettes, désinstallez l\'appli, puis installez la nouvelle version depuis la page des versions.</string>
     <string name="update_allow_install">Autorisez Recettes à installer des applications, puis touchez Installer à nouveau.</string>
     <string name="all_versions">Toutes les versions sur GitHub</string>
+    <string name="contents">Sommaire</string>
+    <string name="chapter">Chapitre %1$s</string>
+    <plurals name="recipe_count">
+        <item quantity="one">%d recette</item>
+        <item quantity="other">%d recettes</item>
+    </plurals>
 </resources>

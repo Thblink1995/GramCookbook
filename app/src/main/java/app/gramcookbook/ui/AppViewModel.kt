@@ -73,6 +73,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var update by mutableStateOf<UpdateState>(UpdateState.Idle)
         private set
 
+    /** The page the book is open at, by key ("contents", "chapter:…", "recipe:<path>"), kept while editing. */
+    var bookPage by mutableStateOf("contents")
+
     /** Servings chosen per recipe, kept while browsing. */
     val servings = mutableStateMapOf<String, Int>()
 

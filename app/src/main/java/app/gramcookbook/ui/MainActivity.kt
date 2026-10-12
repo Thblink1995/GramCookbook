@@ -1,24 +1,16 @@
 package app.gramcookbook.ui
 
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModelProvider
 
 class MainActivity : ComponentActivity() {
@@ -45,18 +37,6 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AppTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
-    val context = LocalContext.current
-    val scheme = when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        dark -> darkColorScheme()
-        else -> lightColorScheme()
-    }
-    MaterialTheme(colorScheme = scheme, content = content)
-}
-
-@Composable
 fun App(vm: AppViewModel) {
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(vm.message) {
@@ -66,8 +46,8 @@ fun App(vm: AppViewModel) {
     }
     BackHandler(enabled = vm.screen != Screen.List) { vm.back() }
     when (val s = vm.screen) {
-        Screen.List -> ListScreen(vm, snackbar)
-        is Screen.Detail -> DetailScreen(vm, s.path, snackbar)
+        // One branch, so the book stays open at its page while a recipe is shown.
+        Screen.List, is Screen.Detail -> BookScreen(vm, snackbar)
         is Screen.Edit -> EditorScreen(vm, s.path, snackbar)
         is Screen.Add -> AddScreen(vm, s.fromLink, s.url, snackbar)
         Screen.Settings -> SettingsScreen(vm, snackbar)

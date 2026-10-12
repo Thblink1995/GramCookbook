@@ -86,5 +86,11 @@
     <string name="update_corrupt">the file is incomplete or altered</string>
     <string name="update_other_key">This version is signed with a different key than the installed app, so Android cannot install it over it. Sync your recipes, uninstall the app, then install the new version from the releases page.</string>
     <string name="update_allow_install">Allow Cookbook to install apps, then tap Install again.</string>
+    <string name="contents">Contents</string>
+    <string name="chapter">Chapter %1$s</string>
+    <plurals name="recipe_count">
+        <item quantity="one">%d recipe</item>
+        <item quantity="other">%d recipes</item>
+    </plurals>
     <string name="all_versions">All versions on GitHub</string>
 </resources>

@@ -12,26 +12,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -48,7 +36,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import app.gramcookbook.R
@@ -57,50 +44,23 @@ import app.gramcookbook.gram.Part
 import app.gramcookbook.gram.Quantity
 import app.gramcookbook.gram.Recipe
 import app.gramcookbook.gram.Step
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** A recipe on its page of the book: the category can be changed from its chip. */
 @Composable
-fun DetailScreen(vm: AppViewModel, path: String, snackbar: SnackbarHostState) {
-    // Re-read after each sync (vm.recipes changes), in case the file was updated remotely.
-    var recipe by remember(path) { mutableStateOf<Recipe?>(null) }
-    LaunchedEffect(path, vm.recipes) {
-        recipe = withContext(Dispatchers.IO) { runCatching { GramParser.parse(vm.read(path)) }.getOrNull() }
-    }
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(recipe?.title ?: "", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                navigationIcon = {
-                    IconButton(onClick = { vm.back() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
-                },
-                actions = {
-                    IconButton(onClick = { vm.navigate(Screen.Edit(path)) }) { Icon(Icons.Default.Edit, stringResource(R.string.edit)) }
-                },
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbar) },
-    ) { padding ->
-        val r = recipe
-        if (r == null) {
-            Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        } else {
-            var editCategory by remember { mutableStateOf(false) }
-            val category = r.meta["category"]?.trim().orEmpty()
-            if (editCategory) {
-                CategoryDialog(category, vm.categories, onDismiss = { editCategory = false }) {
-                    editCategory = false
-                    if (it != category) vm.setCategory(path, it)
-                }
-            }
-            RecipeView(r, category, { editCategory = true }, vm.servings[path], { vm.servings[path] = it }, PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding()))
+fun RecipeContent(vm: AppViewModel, path: String, recipe: Recipe, contentPadding: PaddingValues) {
+    var editCategory by remember { mutableStateOf(false) }
+    val category = recipe.meta["category"]?.trim().orEmpty()
+    if (editCategory) {
+        CategoryDialog(category, vm.categories, onDismiss = { editCategory = false }) {
+            editCategory = false
+            if (it != category) vm.setCategory(path, it)
         }
     }
+    RecipeView(recipe, category, { editCategory = true }, vm.servings[path], { vm.servings[path] = it }, contentPadding)
 }
 
 @Composable
-private fun RecipeView(recipe: Recipe, category: String, onCategoryClick: () -> Unit, chosen: Int?, onChoose: (Int) -> Unit, padding: PaddingValues) {
+private fun RecipeView(recipe: Recipe, category: String, onCategoryClick: () -> Unit, chosen: Int?, onChoose: (Int) -> Unit, contentPadding: PaddingValues) {
     val base = recipe.portions
     // Without `portions`, the stepper counts halves of the recipe: 2 = ×1.
     val count = chosen ?: base ?: 2
@@ -113,11 +73,12 @@ private fun RecipeView(recipe: Recipe, category: String, onCategoryClick: () -> 
     val st = stepStyles()
 
     LazyColumn(
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding() + 8.dp, bottom = padding.calculateBottomPadding() + 32.dp),
+        contentPadding = contentPadding,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                recipe.title?.let { Text(it, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(bottom = 4.dp)) }
                 AssistChip(
                     onClick = onCategoryClick,
                     label = { Text(category.ifEmpty { stringResource(R.string.add_category) }) },
@@ -178,7 +139,7 @@ private fun RecipeView(recipe: Recipe, category: String, onCategoryClick: () -> 
         }
         var number = 0
         for (section in recipe.sections) {
-            item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
+            item { Ornament(muted.copy(alpha = 0.6f), Modifier.padding(vertical = 8.dp)) }
             section.title?.takeIf { it.isNotEmpty() }?.let { t -> item { Heading(t) } }
             for (step in section.steps) {
                 if (step.isCommentOnly) {
@@ -259,7 +220,7 @@ private fun stepText(step: Step, factor: Double, st: StepStyles): AnnotatedStrin
 @Composable
 internal fun RecipePreview(source: String) {
     val recipe = remember(source) { GramParser.parse(source) }
-    Surface(color = MaterialTheme.colorScheme.background) {
-        RecipeView(recipe, recipe.meta["category"].orEmpty(), {}, null, {}, PaddingValues())
+    Box(Modifier.fillMaxSize().paper(LocalBookPalette.current)) {
+        RecipeView(recipe, recipe.meta["category"].orEmpty(), {}, null, {}, PaddingValues(start = 26.dp, end = 18.dp, top = 16.dp, bottom = 32.dp))
     }
 }
