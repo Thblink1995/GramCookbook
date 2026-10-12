@@ -14,8 +14,8 @@ android {
         applicationId = "app.gramcookbook"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
         // Updates are looked for in this GitHub repository's releases.
         buildConfigField("String", "UPDATE_REPO", "\"Thblink1995/GramCookbook\"")
     }
