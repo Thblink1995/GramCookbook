@@ -45,8 +45,8 @@ For GitHub, create a fine-grained personal access token (Settings → Developer 
 - **From a link**: paste a recipe URL and tap Fetch, or use **Share → Cookbook** from the browser. It reads the schema.org recipe data most recipe sites publish (including its category), fills the form, and you review before saving. Sites without that data can't be imported this way.
 - **Back** from the editor returns to the recipe, then to the list.
 - **Edit**: the pencil opens the raw Gram text, with buttons for `@ # ~ ^ ##`.
-- **Look**: paper, ink and a leather cover, in serif type; by lamplight (dark paper) in dark mode. "Add a recipe" is the wax seal at the bottom of the book.
-- **Colors** of the recipe text follow the Gram playground (gram-lang.org/play), in light and dark mode. On a recipe, the HTML preview's: ingredients purple, equipment blue, timers amber, temperatures red, intermediate preparations green, quantities as pills, actions as badges. In the editor, the playground editor's syntax highlighting (github-light / github-dark themes over the official grammar's token types).
+- **Look**: recycled paper, ink and a leather cover, in serif type. The pages stay paper in dark mode. "Add a recipe" is the wax seal at the bottom of the book.
+- **Colors** of the recipe text follow the Gram playground (gram-lang.org/play), light theme (the pages are always paper). On a recipe, the HTML preview's: ingredients purple, equipment blue, timers amber, temperatures red, intermediate preparations green, quantities as pills, actions as badges. In the editor, the playground editor's syntax highlighting (github-light theme over the official grammar's token types).
 
 ## Updates
 

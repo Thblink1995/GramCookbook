@@ -1,7 +1,6 @@
 package app.gramcookbook.ui
 
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -141,7 +140,7 @@ private fun GramTextField(value: TextFieldValue, onChange: (TextFieldValue) -> U
         onValueChange = onChange,
         modifier = modifier,
         textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 14.sp),
-        visualTransformation = GramVisualTransformation(isSystemInDarkTheme()),
+        visualTransformation = GramVisualTransformation,
     )
 }
 

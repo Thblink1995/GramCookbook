@@ -1,7 +1,5 @@
 package app.gramcookbook.ui
 
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
@@ -14,7 +12,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import app.gramcookbook.gram.GramHighlighter
 import app.gramcookbook.gram.GramHighlighter.Kind
 
-/** Colors of the rendered recipe, from the Gram renderer's gram.css (light and dark). */
+/** Colors of the rendered recipe, from the Gram renderer's gram.css (light: the pages are always paper). */
 @Immutable
 data class RecipeColors(
     val ingredient: Color,
@@ -32,27 +30,16 @@ private val RecipeLight = RecipeColors(
     intermediate = Color(0xFF059669),
 )
 
-private val RecipeDark = RecipeColors(
-    ingredient = Color(0xFFC68AFF),
-    cookware = Color(0xFF60A5FA),
-    timer = Color(0xFFFBBF24),
-    temperature = Color(0xFFF87171),
-    intermediate = Color(0xFF34D399),
-)
+fun recipeColors(): RecipeColors = RecipeLight
 
-@Composable
-fun recipeColors(): RecipeColors = if (isSystemInDarkTheme()) RecipeDark else RecipeLight
-
-/** Editor colors: the playground highlights Gram with Shiki's github-light / github-dark themes. */
-private fun editorStyle(kind: Kind, dark: Boolean): SpanStyle {
-    fun c(light: Long, darkColor: Long) = Color(if (dark) darkColor else light)
-    val red = c(0xFFD73A49, 0xFFF97583)
-    val purple = c(0xFF6F42C1, 0xFFB392F0)
-    val blue = c(0xFF005CC5, 0xFF79B8FF)
-    val green = c(0xFF22863A, 0xFF85E89D)
-    val string = c(0xFF032F62, 0xFF9ECBFF)
-    // github-dark-high-contrast's comment color, as patched in the playground for contrast.
-    val comment = c(0xFF6A737D, 0xFFBDC4CC)
+/** Editor colors: the playground highlights Gram with Shiki's github-light theme (the editor is paper too). */
+private fun editorStyle(kind: Kind): SpanStyle {
+    val red = Color(0xFFD73A49)
+    val purple = Color(0xFF6F42C1)
+    val blue = Color(0xFF005CC5)
+    val green = Color(0xFF22863A)
+    val string = Color(0xFF032F62)
+    val comment = Color(0xFF6A737D)
     return when (kind) {
         Kind.SIGIL, Kind.UNIT -> SpanStyle(color = red)
         Kind.INGREDIENT, Kind.ACTION -> SpanStyle(color = purple)
@@ -66,19 +53,16 @@ private fun editorStyle(kind: Kind, dark: Boolean): SpanStyle {
 }
 
 /** Colors the editor's text without changing it (offsets map one to one). */
-class GramVisualTransformation(private val dark: Boolean) : VisualTransformation {
+object GramVisualTransformation : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
         val raw = text.text
         val styled = AnnotatedString.Builder(raw).apply {
             for (s in GramHighlighter.highlight(raw)) {
                 val start = s.start.coerceIn(0, raw.length)
                 val end = s.end.coerceIn(start, raw.length)
-                if (end > start) addStyle(editorStyle(s.kind, dark), start, end)
+                if (end > start) addStyle(editorStyle(s.kind), start, end)
             }
         }.toAnnotatedString()
         return TransformedText(styled, OffsetMapping.Identity)
     }
-
-    override fun equals(other: Any?) = other is GramVisualTransformation && other.dark == dark
-    override fun hashCode() = dark.hashCode()
 }

@@ -1,13 +1,11 @@
 package app.gramcookbook.ui
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -17,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.center
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -64,15 +63,16 @@ private val Tabs = listOf(
     Color(0xFF6B6F8C), // slate
 )
 
-private val LightBook = BookPalette(
+/** Recycled paper whatever the system theme: the pages never turn dark. */
+private val Paper = BookPalette(
     deskTop = Color(0xFF4A3426),
     deskBottom = Color(0xFF2B1D15),
     leather = Color(0xFF6E2F24),
     leatherDark = Color(0xFF3F1A14),
     gold = Color(0xFFD4B26A),
-    paper = Color(0xFFF6EDD9),
-    paperEdge = Color(0xFFE3D2AE),
-    paperBack = Color(0xFFEDE1C6),
+    paper = Color(0xFFE9E2D2),
+    paperEdge = Color(0xFFD5CAB2),
+    paperBack = Color(0xFFDFD6C3),
     shade = Color(0xFF5A4126),
     ink = Color(0xFF33281C),
     inkMuted = Color(0xFF76664F),
@@ -83,29 +83,12 @@ private val LightBook = BookPalette(
     sealDark = Color(0xFF6B1518),
 )
 
-/** Reading by lamplight: dark paper, light ink. */
-private val DarkBook = LightBook.copy(
-    deskTop = Color(0xFF1E1611),
-    deskBottom = Color(0xFF0E0A08),
-    leather = Color(0xFF4A1F19),
-    leatherDark = Color(0xFF2A100C),
-    gold = Color(0xFFBFA060),
-    paper = Color(0xFF2E2821),
-    paperEdge = Color(0xFF221D18),
-    paperBack = Color(0xFF3A332A),
-    shade = Color(0xFF000000),
-    ink = Color(0xFFEDE3CF),
-    inkMuted = Color(0xFFB7A88E),
-    tabNone = Color(0xFF7D725F),
-)
+val LocalBookPalette = staticCompositionLocalOf { Paper }
 
-val LocalBookPalette = staticCompositionLocalOf { LightBook }
-
-private fun scheme(p: BookPalette, dark: Boolean): ColorScheme {
+private fun scheme(p: BookPalette): ColorScheme {
     val variant = lerp(p.paper, p.paperEdge, 0.6f)
-    val rubric = if (dark) Color(0xFFE39A7C) else Color(0xFF9E3B26)
-    val base = if (dark) darkColorScheme() else lightColorScheme()
-    return base.copy(
+    val rubric = Color(0xFF9E3B26)
+    return lightColorScheme(
         primary = rubric,
         onPrimary = p.paper,
         primaryContainer = lerp(p.paper, rubric, 0.14f),
@@ -133,8 +116,8 @@ private fun scheme(p: BookPalette, dark: Boolean): ColorScheme {
         inverseOnSurface = p.paper,
         outline = lerp(p.inkMuted, p.paper, 0.25f),
         outlineVariant = lerp(p.paperEdge, p.inkMuted, 0.25f),
-        errorContainer = if (dark) Color(0xFF5A2A20) else Color(0xFFF4D6C8),
-        onErrorContainer = if (dark) Color(0xFFF7DCD0) else Color(0xFF5A1A10),
+        errorContainer = Color(0xFFF4D6C8),
+        onErrorContainer = Color(0xFF5A1A10),
     )
 }
 
@@ -153,26 +136,43 @@ private val SerifTypography = Typography().run {
 /** A fixed paper-and-ink palette (no dynamic colors: the book has its own materials). */
 @Composable
 fun AppTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
-    val palette = if (dark) DarkBook else LightBook
-    CompositionLocalProvider(LocalBookPalette provides palette) {
-        MaterialTheme(colorScheme = scheme(palette, dark), typography = SerifTypography, content = content)
+    CompositionLocalProvider(LocalBookPalette provides Paper) {
+        MaterialTheme(colorScheme = scheme(Paper), typography = SerifTypography, content = content)
     }
 }
 
-/** A sheet of paper: fibers, a slightly aged edge, and the shadow of the binding on the left. */
+/** Bits of old print and colored stock left in recycled pulp. */
+private val PulpFibers = listOf(Color(0xFF3B5A8C), Color(0xFF9C3B33), Color(0xFF4F7A55), Color(0xFF2E2A26))
+
+/** A sheet of recycled paper: grey fibers, dark specks and a few colored threads, a slightly aged edge, and the shadow of the binding on the left. */
 fun Modifier.paper(p: BookPalette): Modifier = drawWithCache {
     val random = Random(7)
-    val fibers = List((size.width * size.height / 2_500f).toInt().coerceAtMost(600)) {
+    val area = size.width * size.height
+    val fibers = List((area / 1_200f).toInt().coerceAtMost(1_400)) {
         val x = random.nextFloat() * size.width
         val y = random.nextFloat() * size.height
-        val len = (4 + random.nextFloat() * 10).dp.toPx()
+        val len = (3 + random.nextFloat() * 12).dp.toPx()
         val angle = random.nextFloat() * PI.toFloat()
-        Triple(Offset(x, y), Offset(x + len * kotlin.math.cos(angle), y + len * sin(angle)), 0.03f + random.nextFloat() * 0.05f)
+        val colored = random.nextFloat() < 0.04f
+        val color = if (colored) PulpFibers[random.nextInt(PulpFibers.size)].copy(alpha = 0.25f + random.nextFloat() * 0.2f)
+        else p.shade.copy(alpha = 0.04f + random.nextFloat() * 0.07f)
+        Triple(Offset(x, y), Offset(x + len * kotlin.math.cos(angle), y + len * sin(angle)), color)
+    }
+    val specks = List((area / 4_000f).toInt().coerceAtMost(500)) {
+        val center = Offset(random.nextFloat() * size.width, random.nextFloat() * size.height)
+        val radius = (0.3f + random.nextFloat() * random.nextFloat() * 1.2f).dp.toPx()
+        Triple(center, radius, p.shade.copy(alpha = 0.12f + random.nextFloat() * 0.3f))
+    }
+    // Uneven pulp: broad, faint blotches lighter and darker than the sheet.
+    val blotches = List(14) {
+        val center = Offset(random.nextFloat() * size.width, random.nextFloat() * size.height)
+        val radius = (40 + random.nextFloat() * 120).dp.toPx()
+        val tint = if (random.nextBoolean()) Color.White.copy(alpha = 0.10f) else p.shade.copy(alpha = 0.05f)
+        Brush.radialGradient(listOf(tint, Color.Transparent), center = center, radius = radius)
     }
     val vignette = Brush.radialGradient(
         0.55f to Color.Transparent, 1f to p.shade.copy(alpha = 0.16f),
-        center = center, radius = max(size.width, size.height) * 0.75f,
+        center = size.center, radius = max(size.width, size.height) * 0.75f,
     )
     val gutterWidth = 28.dp.toPx()
     val gutter = Brush.horizontalGradient(
@@ -182,7 +182,9 @@ fun Modifier.paper(p: BookPalette): Modifier = drawWithCache {
     val fiberWidth = 0.6.dp.toPx()
     onDrawBehind {
         drawRect(p.paper)
-        for ((a, b, alpha) in fibers) drawLine(p.shade.copy(alpha = alpha), a, b, fiberWidth, StrokeCap.Round)
+        for (blotch in blotches) drawRect(blotch)
+        for ((a, b, color) in fibers) drawLine(color, a, b, fiberWidth, StrokeCap.Round)
+        for ((center, radius, color) in specks) drawCircle(color, radius, center)
         drawRect(vignette)
         drawRect(gutter, size = size.copy(width = gutterWidth))
     }
