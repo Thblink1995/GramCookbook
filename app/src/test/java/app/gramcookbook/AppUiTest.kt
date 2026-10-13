@@ -3,6 +3,7 @@ package app.gramcookbook
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -235,6 +236,26 @@ class AppUiTest {
         compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Edit").fetchSemanticsNodes().isNotEmpty() }
         val app = ApplicationProvider.getApplicationContext<Context>()
         assertTrue(File(app.filesDir, "recipes/pancakes.gram").readText().contains("@flour{100g}"))
+    }
+
+    @Test fun writeARecipeDirectlyInGram() {
+        waitForText("Connect a repository")
+        compose.onNodeWithContentDescription("Add a recipe").performClick()
+        compose.onNodeWithText("Write a recipe").performClick()
+
+        // The plain form is the default; switching to Gram carries over what it holds.
+        compose.onNode(hasText("Title") and hasSetTextAction()).performTextInput("Omelette")
+        compose.onNodeWithText("Gram").performClick()
+        compose.onNode(hasSetTextAction()).assertTextContains("title: 'Omelette'", substring = true)
+
+        compose.onNode(hasSetTextAction()).performTextReplacement(
+            "---\ntitle: 'Omelette'\nportions: 1\n---\n\nBeat @eggs{3} in a #bowl.\n",
+        )
+        compose.onNodeWithContentDescription("Save").performClick()
+        waitForText("1 serving", substring = true)
+        assertShown(item("eggs", "3"))
+        val app = ApplicationProvider.getApplicationContext<Context>()
+        assertEquals("---\ntitle: 'Omelette'\nportions: 1\n---\n\nBeat @eggs{3} in a #bowl.\n", File(app.filesDir, "recipes/omelette.gram").readText())
     }
 
     @Test fun importFromLink() {

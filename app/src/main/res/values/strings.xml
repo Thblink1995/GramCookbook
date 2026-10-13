@@ -104,4 +104,6 @@
     <string name="source_exists">This repository is already in the book.</string>
     <string name="source_failed">Could not update %1$s: %2$s</string>
     <string name="copy_to_mine">Copy to my cookbook</string>
+    <string name="mode_plain">Plain</string>
+    <string name="mode_gram">Gram</string>
 </resources>

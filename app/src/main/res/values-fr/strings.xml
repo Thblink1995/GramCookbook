@@ -105,4 +105,6 @@
     <string name="source_exists">Ce dépôt est déjà dans le livre.</string>
     <string name="source_failed">Impossible de mettre à jour %1$s : %2$s</string>
     <string name="copy_to_mine">Copier dans mon livre</string>
+    <string name="mode_plain">Simple</string>
+    <string name="mode_gram">Gram</string>
 </resources>

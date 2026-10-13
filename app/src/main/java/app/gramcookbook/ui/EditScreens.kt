@@ -58,6 +58,11 @@ import app.gramcookbook.R
 import app.gramcookbook.data.GitConfig
 import app.gramcookbook.data.Source
 import app.gramcookbook.gram.RecipeDraft
+import app.gramcookbook.gram.GramWriter
+import app.gramcookbook.gram.GramParser
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SegmentedButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -99,28 +104,12 @@ fun EditorScreen(vm: AppViewModel, path: String, snackbar: SnackbarHostState) {
         }
     }
 
-    fun insert(token: String, cursorBack: Int = 0) {
-        val sel = value.selection
-        val text = value.text.replaceRange(sel.min, sel.max, token)
-        value = TextFieldValue(text, TextRange(sel.min + token.length - cursorBack))
-    }
-
     FormScaffold(vm, stringResource(R.string.edit), snackbar, actions = {
         IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Default.Delete, stringResource(R.string.delete)) }
         IconButton(onClick = { vm.saveText(path, value.text) }, enabled = loaded) { Icon(Icons.Default.Check, stringResource(R.string.save)) }
     }) { modifier ->
         Column(modifier) {
-            Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                AssistChip(onClick = { insert("@{}", 2) }, label = { Text("@ " + stringResource(R.string.ingredient)) })
-                AssistChip(onClick = { insert("#{}", 2) }, label = { Text("# " + stringResource(R.string.utensil)) })
-                AssistChip(onClick = { insert("~{}", 1) }, label = { Text("~ " + stringResource(R.string.timer)) })
-                AssistChip(onClick = { insert("~_{}", 1) }, label = { Text("~_ " + stringResource(R.string.rest)) })
-                AssistChip(onClick = { insert("^{}", 1) }, label = { Text("^ °C") })
-                AssistChip(onClick = { insert("\n## ") }, label = { Text("## Section") })
-            }
+            GramSymbols { token, back -> value = value.inserting(token, back) }
             GramTextField(value, { value = it }, Modifier.fillMaxSize())
         }
     }
@@ -133,6 +122,28 @@ fun EditorScreen(vm: AppViewModel, path: String, snackbar: SnackbarHostState) {
             confirmButton = { TextButton(onClick = { confirmDelete = false; vm.delete(path) }) { Text(stringResource(R.string.delete)) } },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.cancel)) } },
         )
+    }
+}
+
+/** [token] in place of the selection, the cursor [cursorBack] characters before its end. */
+private fun TextFieldValue.inserting(token: String, cursorBack: Int): TextFieldValue {
+    val sel = selection
+    return TextFieldValue(text.replaceRange(sel.min, sel.max, token), TextRange(sel.min + token.length - cursorBack))
+}
+
+/** Buttons for the Gram symbols that are awkward on a phone keyboard. */
+@Composable
+private fun GramSymbols(insert: (token: String, cursorBack: Int) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        AssistChip(onClick = { insert("@{}", 2) }, label = { Text("@ " + stringResource(R.string.ingredient)) })
+        AssistChip(onClick = { insert("#{}", 2) }, label = { Text("# " + stringResource(R.string.utensil)) })
+        AssistChip(onClick = { insert("~{}", 1) }, label = { Text("~ " + stringResource(R.string.timer)) })
+        AssistChip(onClick = { insert("~_{}", 1) }, label = { Text("~_ " + stringResource(R.string.rest)) })
+        AssistChip(onClick = { insert("^{}", 1) }, label = { Text("^ °C") })
+        AssistChip(onClick = { insert("\n## ", 0) }, label = { Text("## Section") })
     }
 }
 
@@ -154,7 +165,13 @@ internal fun EditorPreview(source: String) {
     GramTextField(TextFieldValue(source), {}, Modifier.fillMaxSize())
 }
 
-/** New recipe in plain language, typed or filled from a web page, converted to Gram on save. */
+/** Start of a recipe written in Gram from scratch; the cursor goes after `title: `. */
+private const val GramTemplate = "---\ntitle: \n---\n\n"
+
+/**
+ * New recipe in plain language, typed or filled from a web page, converted to Gram on save.
+ * Or, switched to Gram, written directly in Gram (starting from what the form already holds).
+ */
 @Composable
 fun AddScreen(vm: AppViewModel, fromLink: Boolean, initialUrl: String, snackbar: SnackbarHostState) {
     var url by rememberSaveable { mutableStateOf(initialUrl) }
@@ -166,6 +183,18 @@ fun AddScreen(vm: AppViewModel, fromLink: Boolean, initialUrl: String, snackbar:
     var source by rememberSaveable { mutableStateOf("") }
     var author by rememberSaveable { mutableStateOf("") }
     var fetched by rememberSaveable { mutableStateOf(false) }
+    var gramMode by rememberSaveable { mutableStateOf(false) }
+    var gram by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
+    // Built when used: handlers can outlive the composition that created them.
+    fun draft() = RecipeDraft(title, portions, ingredients, steps, category, source, author)
+
+    fun switchMode(toGram: Boolean) {
+        if (toGram && gram.text.isBlank()) {
+            val empty = listOf(title, portions, ingredients, steps, category, source, author).all { it.isBlank() }
+            gram = if (empty) TextFieldValue(GramTemplate, TextRange("---\ntitle: ".length)) else GramWriter.toGram(draft()).let { TextFieldValue(it, TextRange(it.length)) }
+        }
+        gramMode = toGram
+    }
 
     val fill: (RecipeDraft) -> Unit = { d ->
         title = d.title
@@ -183,14 +212,23 @@ fun AddScreen(vm: AppViewModel, fromLink: Boolean, initialUrl: String, snackbar:
 
     FormScaffold(vm, stringResource(if (fromLink) R.string.from_link else R.string.write_recipe), snackbar, actions = {
         IconButton(
-            onClick = { vm.saveDraft(RecipeDraft(title, portions, ingredients, steps, category, source, author)) },
-            enabled = title.isNotBlank() && !vm.busy,
+            onClick = { if (gramMode) vm.saveGram(gram.text) else vm.saveDraft(draft()) },
+            enabled = !vm.busy && if (gramMode) GramParser.readTitle(gram.text) != null else title.isNotBlank(),
         ) { Icon(Icons.Default.Check, stringResource(R.string.save)) }
     }) { modifier ->
+        if (gramMode) {
+            Column(modifier) {
+                ModeSwitch(gramMode, ::switchMode, Modifier.padding(16.dp, 8.dp))
+                GramSymbols { token, back -> gram = gram.inserting(token, back) }
+                GramTextField(gram, { gram = it }, Modifier.fillMaxSize())
+            }
+            return@FormScaffold
+        }
         Column(
             modifier.verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            ModeSwitch(gramMode, ::switchMode)
             if (vm.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             if (fromLink) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -228,6 +266,16 @@ fun AddScreen(vm: AppViewModel, fromLink: Boolean, initialUrl: String, snackbar:
                 minLines = 6,
             )
         }
+    }
+}
+
+/** Plain form (the default) or Gram. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ModeSwitch(gram: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+    SingleChoiceSegmentedButtonRow(modifier.fillMaxWidth()) {
+        SegmentedButton(!gram, { onChange(false) }, SegmentedButtonDefaults.itemShape(0, 2)) { Text(stringResource(R.string.mode_plain)) }
+        SegmentedButton(gram, { onChange(true) }, SegmentedButtonDefaults.itemShape(1, 2)) { Text(stringResource(R.string.mode_gram)) }
     }
 }
 

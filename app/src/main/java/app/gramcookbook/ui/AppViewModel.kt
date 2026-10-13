@@ -346,6 +346,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Saves a new recipe written directly in Gram (named after its title), and shows it. */
+    fun saveGram(text: String) {
+        val title = GramParser.readTitle(text) ?: return
+        viewModelScope.launch {
+            val path = withContext(Dispatchers.IO) { store.newPath(title).also { store.write(it, text) } }
+            replace(Screen.Detail(path))
+            sync(str(R.string.commit_add, title))
+        }
+    }
+
     /** Converts a plain recipe to Gram, saves it, and shows it. */
     fun saveDraft(draft: RecipeDraft) {
         viewModelScope.launch {
