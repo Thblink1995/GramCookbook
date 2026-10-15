@@ -88,6 +88,10 @@ object GramParser {
         return v.substring(1, v.length - 1).split(',').map { unquote(it.trim()) }.filter { it.isNotEmpty() }
     }
 
+    /** `tags: ['a', 'b']`, or `tags: a, b`. */
+    fun tags(v: String?): List<String> =
+        listValues(v).flatMap { it.split(',') }.map { it.trim() }.filter { it.isNotEmpty() }.distinctBy { it.lowercase() }
+
     private fun sectionTitle(raw: String): String {
         val cut = listOf(raw.indexOf("->&"), raw.indexOf("~{")).filter { it >= 0 }.minOrNull() ?: raw.length
         return raw.substring(0, cut).trim()

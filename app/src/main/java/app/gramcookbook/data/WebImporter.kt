@@ -1,5 +1,6 @@
 package app.gramcookbook.data
 
+import app.gramcookbook.gram.Durations
 import app.gramcookbook.gram.RecipeDraft
 import org.json.JSONArray
 import org.json.JSONObject
@@ -89,8 +90,15 @@ object WebImporter {
             source = url.trim(),
             author = author(r.opt("author")),
             category = strings(r.opt("recipeCategory")).firstOrNull().orEmpty(),
+            tags = strings(r.opt("keywords")).joinToString(", "),
+            prepTime = minutes(r.opt("prepTime")),
+            cookTime = minutes(r.opt("cookTime")),
+            totalTime = minutes(r.opt("totalTime")),
         )
     }
+
+    /** schema.org durations are ISO 8601 (`PT1H15M`); kept in minutes. */
+    private fun minutes(v: Any?): String = strings(v).firstOrNull()?.let(Durations::minutes)?.toString().orEmpty()
 
     private fun strings(v: Any?): List<String> = when (v) {
         null, JSONObject.NULL -> emptyList()

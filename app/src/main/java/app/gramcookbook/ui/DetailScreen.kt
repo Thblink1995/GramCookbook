@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import app.gramcookbook.R
+import app.gramcookbook.gram.Durations
 import app.gramcookbook.gram.GramParser
 import app.gramcookbook.gram.Part
 import app.gramcookbook.gram.Quantity
@@ -89,6 +90,15 @@ private fun RecipeView(recipe: Recipe, category: String, onCategoryClick: (() ->
                         enabled = onCategoryClick != null,
                     )
                 }
+                val times = remember(recipe) { recipe.times }
+                if (times.isNotEmpty()) {
+                    val labels = mapOf(
+                        Durations.Kind.PREP to R.string.prep_time,
+                        Durations.Kind.COOK to R.string.cook_time,
+                        Durations.Kind.TOTAL to R.string.total_time,
+                    ).mapValues { stringResource(it.value) }
+                    Text(times.entries.joinToString("  ·  ") { (kind, value) -> labels.getValue(kind) + " " + value }, color = muted)
+                }
                 recipe.meta["makes"]?.takeIf { it.isNotBlank() }?.let { Text(it, color = muted) }
                 recipe.meta["author"]?.let(GramParser::listValues)?.takeIf { it.isNotEmpty() }?.let { Text(it.joinToString(", "), color = muted) }
                 GramParser.listValues(recipe.meta["source"]).firstOrNull()?.let { src ->
@@ -99,6 +109,8 @@ private fun RecipeView(recipe: Recipe, category: String, onCategoryClick: (() ->
                             .clickable(enabled = src.startsWith("http")) { runCatching { uri.openUri(src) } },
                     )
                 }
+                val tags = remember(recipe) { recipe.tags }
+                if (tags.isNotEmpty()) Text(tags.joinToString("  ") { "#$it" }, color = muted, style = MaterialTheme.typography.bodySmall)
                 recipe.meta["notes"]?.takeIf { it.isNotBlank() }?.let { Text(it, fontStyle = FontStyle.Italic) }
             }
         }

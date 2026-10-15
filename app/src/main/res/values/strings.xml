@@ -9,7 +9,7 @@
     <string name="add_recipe">Add a recipe</string>
     <string name="write_recipe">Write a recipe</string>
     <string name="from_link">From a link</string>
-    <string name="search">Search</string>
+    <string name="search">Title, ingredient or tag</string>
     <string name="no_recipes">No recipes yet. Tap + to add one.</string>
     <string name="setup_hint">No recipes yet. Add one with the wax seal, or sync with a git repository of .gram recipes.</string>
     <string name="connect_repo">Connect a repository</string>
@@ -106,4 +106,11 @@
     <string name="copy_to_mine">Copy to my cookbook</string>
     <string name="mode_plain">Plain</string>
     <string name="mode_gram">Gram</string>
+    <string name="prep_time">Prep</string>
+    <string name="cook_time">Cook</string>
+    <string name="total_time">Total</string>
+    <string name="prep_minutes">Prep (min)</string>
+    <string name="cook_minutes">Cook (min)</string>
+    <string name="tags">Tags</string>
+    <string name="tags_hint">Separated by commas, e.g. "quick, vegetarian"</string>
 </resources>

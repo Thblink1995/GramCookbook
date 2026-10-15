@@ -10,8 +10,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.ViewModelProvider
 
 class MainActivity : ComponentActivity() {
@@ -48,6 +50,13 @@ fun App(vm: AppViewModel) {
         snackbar.showSnackbar(m)
     }
     BackHandler(enabled = vm.screen != Screen.List) { vm.back() }
+    // A recipe is read while cooking: the screen stays on while one is open.
+    val view = LocalView.current
+    val reading = vm.screen is Screen.Detail
+    DisposableEffect(view, reading) {
+        view.keepScreenOn = reading
+        onDispose { view.keepScreenOn = false }
+    }
     when (val s = vm.screen) {
         // One branch, so the book stays open at its page while a recipe is shown.
         Screen.List, is Screen.Detail -> BookScreen(vm, snackbar)

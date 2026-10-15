@@ -9,6 +9,12 @@ data class RecipeDraft(
     val category: String = "",
     val source: String = "",
     val author: String = "",
+    /** Comma-separated. */
+    val tags: String = "",
+    /** Minutes, or a duration as written (`1h30`). */
+    val prepTime: String = "",
+    val cookTime: String = "",
+    val totalTime: String = "",
 )
 
 data class ParsedIngredient(val name: String, val quantity: String, val preparation: String?, val optional: Boolean = false)
@@ -122,6 +128,14 @@ object GramWriter {
         if (draft.category.isNotBlank()) out.append("category: ").append(yamlQuote(draft.category.trim())).append('\n')
         if (draft.author.isNotBlank()) out.append("author: ").append(yamlQuote(draft.author.trim())).append('\n')
         if (draft.source.isNotBlank()) out.append("source: ").append(yamlQuote(draft.source.trim())).append('\n')
+        GramParser.tags(draft.tags).takeIf { it.isNotEmpty() }?.let { tags ->
+            out.append("tags: [").append(tags.joinToString(", ", transform = ::yamlQuote)).append("]\n")
+        }
+        // In minutes, like `gram import`; kept as written when it isn't a duration.
+        for ((key, value) in listOf("prepTime" to draft.prepTime, "cookTime" to draft.cookTime, "totalTime" to draft.totalTime)) {
+            if (value.isBlank()) continue
+            out.append(key).append(": ").append(Durations.minutes(value)?.toString() ?: yamlQuote(value.trim())).append('\n')
+        }
         out.append("---\n")
 
         if (unplaced.isNotEmpty()) {

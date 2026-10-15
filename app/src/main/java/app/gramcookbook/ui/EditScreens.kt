@@ -182,15 +182,20 @@ fun AddScreen(vm: AppViewModel, fromLink: Boolean, initialUrl: String, snackbar:
     var steps by rememberSaveable { mutableStateOf("") }
     var source by rememberSaveable { mutableStateOf("") }
     var author by rememberSaveable { mutableStateOf("") }
+    var tags by rememberSaveable { mutableStateOf("") }
+    var prepTime by rememberSaveable { mutableStateOf("") }
+    var cookTime by rememberSaveable { mutableStateOf("") }
+    // Not in the form: kept from an imported page.
+    var totalTime by rememberSaveable { mutableStateOf("") }
     var fetched by rememberSaveable { mutableStateOf(false) }
     var gramMode by rememberSaveable { mutableStateOf(false) }
     var gram by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
     // Built when used: handlers can outlive the composition that created them.
-    fun draft() = RecipeDraft(title, portions, ingredients, steps, category, source, author)
+    fun draft() = RecipeDraft(title, portions, ingredients, steps, category, source, author, tags, prepTime, cookTime, totalTime)
 
     fun switchMode(toGram: Boolean) {
         if (toGram && gram.text.isBlank()) {
-            val empty = listOf(title, portions, ingredients, steps, category, source, author).all { it.isBlank() }
+            val empty = listOf(title, portions, ingredients, steps, category, source, author, tags, prepTime, cookTime).all { it.isBlank() }
             gram = if (empty) TextFieldValue(GramTemplate, TextRange("---\ntitle: ".length)) else GramWriter.toGram(draft()).let { TextFieldValue(it, TextRange(it.length)) }
         }
         gramMode = toGram
@@ -203,6 +208,10 @@ fun AddScreen(vm: AppViewModel, fromLink: Boolean, initialUrl: String, snackbar:
         steps = d.steps
         source = d.source
         author = d.author
+        tags = d.tags
+        prepTime = d.prepTime
+        cookTime = d.cookTime
+        totalTime = d.totalTime
         if (d.category.isNotBlank()) category = d.category
         fetched = true
     }
@@ -253,6 +262,18 @@ fun AddScreen(vm: AppViewModel, fromLink: Boolean, initialUrl: String, snackbar:
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             )
             CategoryField(category, { category = it }, vm.categories)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for ((value, set, label) in listOf(
+                    Triple(prepTime, { v: String -> prepTime = v }, R.string.prep_minutes),
+                    Triple(cookTime, { v: String -> cookTime = v }, R.string.cook_minutes),
+                )) {
+                    OutlinedTextField(
+                        value, { v -> set(v.filter(Char::isDigit)) }, Modifier.weight(1f),
+                        label = { Text(stringResource(label)) }, singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    )
+                }
+            }
             OutlinedTextField(
                 ingredients, { ingredients = it }, Modifier.fillMaxWidth(),
                 label = { Text(stringResource(R.string.ingredients)) },
@@ -264,6 +285,12 @@ fun AddScreen(vm: AppViewModel, fromLink: Boolean, initialUrl: String, snackbar:
                 label = { Text(stringResource(R.string.steps)) },
                 supportingText = { Text(stringResource(R.string.steps_hint)) },
                 minLines = 6,
+            )
+            OutlinedTextField(
+                tags, { tags = it }, Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.tags)) },
+                supportingText = { Text(stringResource(R.string.tags_hint)) },
+                singleLine = true,
             )
         }
     }

@@ -632,11 +632,11 @@ private fun ContentsPage(
                 shape = RoundedCornerShape(4.dp),
             )
         }
-        val needle = RecipeStore.slug(query)
+        val needle = RecipeStore.fold(query)
         var any = false
         for (leaf in leaves) {
             if (leaf !is Leaf.Chapter) continue
-            val shown = if (needle.isEmpty()) leaf.entries else leaf.entries.filter { RecipeStore.slug(it.title + " " + it.path).contains(needle) }
+            val shown = if (needle.isEmpty()) leaf.entries else leaf.entries.filter { needle in it.searchText }
             if (shown.isEmpty()) continue
             any = true
             item(key = leaf.key) { ChapterHeading(leaf) { indexOf[leaf.key]?.let(onOpen) } }

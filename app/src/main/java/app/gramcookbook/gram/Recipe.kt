@@ -7,6 +7,11 @@ data class Recipe(val meta: Map<String, String>, val sections: List<Section>) {
     val portions: Int?
         get() = meta["portions"]?.let { Regex("""\d+""").find(it)?.value?.toIntOrNull() }?.takeIf { it > 0 }
 
+    val tags: List<String> get() = GramParser.tags(meta["tags"])
+
+    /** Preparation, cooking and total time, formatted. */
+    val times: Map<Durations.Kind, String> get() = Durations.of(meta)
+
     /** Ingredients aggregated for the list at the top of a recipe, in order of first use. */
     fun ingredientList(): List<ListItem> {
         val items = LinkedHashMap<String, ListItem>()

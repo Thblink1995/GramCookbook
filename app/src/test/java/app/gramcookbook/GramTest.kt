@@ -1,5 +1,7 @@
 package app.gramcookbook
 
+import app.gramcookbook.data.RecipeStore
+import app.gramcookbook.gram.Durations
 import app.gramcookbook.gram.GramParser
 import app.gramcookbook.gram.GramWriter
 import app.gramcookbook.gram.ParsedIngredient
@@ -9,7 +11,9 @@ import app.gramcookbook.gram.RecipeDraft
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 
 class GramTest {
     private fun resource(name: String) = javaClass.classLoader!!.getResource(name)!!.readText()
@@ -160,6 +164,55 @@ class GramTest {
             listOf("vanille", "farine", "sel", "œufs", "lait", "sucre en poudre"),
             r.ingredientList().map { it.name },
         )
+    }
+}
+
+class TagsAndTimesTest {
+    @get:Rule val tmp = TemporaryFolder()
+
+    @Test fun readsDurations() {
+        assertEquals(15, Durations.minutes("15"))
+        assertEquals(90, Durations.minutes("1h30"))
+        assertEquals(90, Durations.minutes("1 h 30 min"))
+        assertEquals(45, Durations.minutes("45 minutes"))
+        assertEquals(75, Durations.minutes("PT1H15M"))
+        assertEquals(20, Durations.minutes("PT20M"))
+        assertNull(Durations.minutes("PT0M"))
+        assertNull(Durations.minutes("une nuit"))
+        assertEquals("1 h 05", Durations.format(65))
+        assertEquals("2 h", Durations.format(120))
+    }
+
+    @Test fun readsTagsAndTimesFromTheFrontmatter() {
+        val r = GramParser.parse(javaClass.classLoader!!.getResource("pancakes.gram")!!.readText())
+        assertEquals("rapide", r.tags.last())
+        assertEquals(10, r.tags.size)
+        assertEquals(
+            mapOf(Durations.Kind.PREP to "5 min", Durations.Kind.COOK to "10 min", Durations.Kind.TOTAL to "15 min"),
+            r.times,
+        )
+        val other = GramParser.parse("---\ntags: soupe, hiver\nprep time: 1h30\ntime: une nuit\n---\n")
+        assertEquals(listOf("soupe", "hiver"), other.tags)
+        assertEquals(mapOf(Durations.Kind.PREP to "1 h 30", Durations.Kind.TOTAL to "une nuit"), other.times)
+    }
+
+    @Test fun writesTagsAndTimes() {
+        val gram = GramWriter.toGram(RecipeDraft(title = "Soupe", tags = "soupe, hiver, ", prepTime = "15", cookTime = "1h", steps = "Cuire."))
+        assertTrue(gram, gram.contains("tags: ['soupe', 'hiver']\nprepTime: 15\ncookTime: 60\n"))
+        val r = GramParser.parse(gram)
+        assertEquals(listOf("soupe", "hiver"), r.tags)
+        assertEquals(mapOf(Durations.Kind.PREP to "15 min", Durations.Kind.COOK to "1 h"), r.times)
+    }
+
+    @Test fun searchLooksInIngredientsAndTags() {
+        val store = RecipeStore(tmp.root)
+        store.write("soupe.gram", "---\ntitle: 'Soupe'\ntags: ['Hiver']\n---\n\nCouper la @courgette{2} et les @Œufs{1}.\n")
+        val e = store.list().single()
+        assertEquals(listOf("courgette", "Œufs"), e.ingredients)
+        assertTrue(RecipeStore.fold("Courgette") in e.searchText)
+        assertTrue(RecipeStore.fold("oeufs") in e.searchText)
+        assertTrue(RecipeStore.fold("hiver") in e.searchText)
+        assertTrue(RecipeStore.fold("tomate") !in e.searchText)
     }
 }
 

@@ -9,7 +9,7 @@
     <string name="add_recipe">Ajouter une recette</string>
     <string name="write_recipe">Écrire une recette</string>
     <string name="from_link">Depuis un lien</string>
-    <string name="search">Rechercher</string>
+    <string name="search">Titre, ingrédient ou tag</string>
     <string name="no_recipes">Aucune recette. Appuyez sur + pour en ajouter une.</string>
     <string name="setup_hint">Pas encore de recette. Ajoutez-en une avec le sceau de cire, ou synchronisez avec un dépôt git de recettes .gram.</string>
     <string name="connect_repo">Connecter un dépôt</string>
@@ -107,4 +107,11 @@
     <string name="copy_to_mine">Copier dans mon livre</string>
     <string name="mode_plain">Simple</string>
     <string name="mode_gram">Gram</string>
+    <string name="prep_time">Préparation</string>
+    <string name="cook_time">Cuisson</string>
+    <string name="total_time">Total</string>
+    <string name="prep_minutes">Préparation (min)</string>
+    <string name="cook_minutes">Cuisson (min)</string>
+    <string name="tags">Tags</string>
+    <string name="tags_hint">Séparés par des virgules, par ex. « rapide, végétarien »</string>
 </resources>

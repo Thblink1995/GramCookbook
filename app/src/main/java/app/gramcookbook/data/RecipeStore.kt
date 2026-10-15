@@ -7,7 +7,17 @@ import java.io.File
  * A recipe file, by path relative to the repository root (`breakfast/pancakes.gram`).
  * Recipes of a read-only [Source] have its id as a prefix (`<id>:breakfast/pancakes.gram`) and its [source] name.
  */
-data class RecipeEntry(val path: String, val title: String, val category: String, val source: String? = null)
+data class RecipeEntry(
+    val path: String,
+    val title: String,
+    val category: String,
+    val source: String? = null,
+    val tags: List<String> = emptyList(),
+    val ingredients: List<String> = emptyList(),
+) {
+    /** What the contents' search looks in, folded like [RecipeStore.fold]. */
+    val searchText: String by lazy { RecipeStore.fold(listOf(title, path, tags.joinToString(" "), ingredients.joinToString(" ")).joinToString(" ")) }
+}
 
 /** The working copy of the git repository is the whole database: one `.gram` file per recipe. */
 class RecipeStore(val root: File) {
@@ -18,11 +28,15 @@ class RecipeStore(val root: File) {
             .filter { it.isFile && it.extension == "gram" }
             .map { f ->
                 val path = f.relativeTo(root).invariantSeparatorsPath
-                val meta = runCatching { GramParser.readMeta(f.readText()) }.getOrDefault(emptyMap())
+                // The whole recipe, for its ingredients: the search looks in them too.
+                val recipe = runCatching { GramParser.parse(f.readText()) }.getOrNull()
+                val meta = recipe?.meta.orEmpty()
                 RecipeEntry(
                     path = path,
                     title = meta["title"]?.takeIf { it.isNotBlank() } ?: f.nameWithoutExtension,
                     category = meta["category"]?.trim().orEmpty(),
+                    tags = recipe?.tags.orEmpty(),
+                    ingredients = recipe?.ingredientList()?.map { it.name }.orEmpty(),
                 )
             }
             .sortedBy { it.title.lowercase() }
@@ -67,11 +81,13 @@ class RecipeStore(val root: File) {
     }
 
     companion object {
-        fun slug(s: String): String = java.text.Normalizer.normalize(s.lowercase(), java.text.Normalizer.Form.NFD)
+        fun slug(s: String): String = fold(s).take(60)
+
+        /** Lowercase, without accents, words joined by `-`: `Œufs brouillés` -> `oeufs-brouilles`. */
+        fun fold(s: String): String = java.text.Normalizer.normalize(s.lowercase(), java.text.Normalizer.Form.NFD)
             .replace(Regex("""\p{M}"""), "")
             .replace("œ", "oe").replace("æ", "ae")
             .replace(Regex("""[^a-z0-9]+"""), "-")
             .trim('-')
-            .take(60)
     }
 }

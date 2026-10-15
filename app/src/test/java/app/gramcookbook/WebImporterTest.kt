@@ -38,6 +38,16 @@ class WebImporterTest {
         assertEquals("Cut the leeks.\nBoil 20 min.", d.steps)
     }
 
+    @Test fun readsKeywordsAndTimes() {
+        val html = """<script type="application/ld+json">{"@type":"Recipe","name":"Soup","recipeIngredient":["2 leeks"],
+            "keywords":"soup, winter","prepTime":"PT15M","cookTime":"PT1H","totalTime":"PT1H15M"}</script>"""
+        val d = WebImporter.fromHtml(html, "u")!!
+        assertEquals("soup, winter", d.tags)
+        assertEquals("15", d.prepTime)
+        assertEquals("60", d.cookTime)
+        assertEquals("75", d.totalTime)
+    }
+
     @Test fun noRecipe() {
         assertNull(WebImporter.fromHtml("<html><body>hello</body></html>", "u"))
     }
